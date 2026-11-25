@@ -27,7 +27,7 @@
 #         [ ] queryFileInformation
 #         [ ] queryFsInformation
 #         [ ] findNext2
-#         [ ] findFirst2
+#         [x] findFirst2
 #     [ ] SMBCommands
 #         [ ] smbTransaction
 #         [ ] smbNTTransact
@@ -65,7 +65,7 @@
 #         [ ] smb2Write
 #         [ ] smb2Read
 #         [ ] smb2Flush
-#         [ ] smb2QueryDirectory
+#         [x] smb2QueryDirectory
 #         [ ] smb2ChangeNotify
 #         [ ] smb2Echo
 #         [ ] smb2TreeDisconnect
@@ -74,19 +74,27 @@
 #         [ ] smb2Lock
 #         [ ] smb2Cancel
 #
+import os
 import unittest
 from time import sleep
 from os.path import exists, getmtime, join
 from os import mkdir, rmdir, remove, urandom
 from multiprocessing import Process
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import Mock
 
 from six import StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket import smb
 from impacket.smb import SMB_DIALECT
-from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, SMB2Commands
+from impacket.smbserver import (
+    normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, SMB2Commands, TRANS2Commands,
+)
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
-from impacket.nt_errors import STATUS_NOT_SUPPORTED, STATUS_OBJECT_PATH_SYNTAX_BAD
+from impacket.nt_errors import (
+    STATUS_NETWORK_NAME_DELETED, STATUS_NOT_SUPPORTED, STATUS_OBJECT_PATH_SYNTAX_BAD, STATUS_SUCCESS,
+)
 from impacket import smb3structs as smb2
 from threading import Thread
 
@@ -171,6 +179,177 @@ class SMBServerUnitTests(unittest.TestCase):
         self.assertFalse(isInFileJail(jail_path, "/tmp/filename"))
         self.assertFalse(isInFileJail(jail_path, "../filename"))
         self.assertFalse(isInFileJail(jail_path, "../../filename"))
+
+
+class SMBServerDirectorySearchTests(unittest.TestCase):
+    """Exercise server-side directory searches without opening a socket."""
+
+    tree_id = 1
+    file_id = b'\x01' * 16
+
+    def setUp(self):
+        temp = TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        # A Windows TEMP path can contain a DOS short-name alias.
+        root = Path(temp.name).resolve()
+        self.share = root / 'share'
+        self.subdir = self.share / 'subdir'
+        self.subdir.mkdir(parents=True)
+        (self.share / 'root.txt').touch()
+        (self.subdir / 'inside.txt').touch()
+        self.outside = root / 'share-outside'
+        self.outside.mkdir()
+        (self.outside / 'outside.txt').touch()
+        self.connection = {'ConnectedShares': {self.tree_id: {'path': str(self.share)}}, 'SIDs': {}}
+        self.server = Mock(spec=SMBSERVER)
+        self.server.getConnectionData.return_value = self.connection
+
+    def _query_directory(self, directory, pattern, tree_id=None):
+        self.connection['OpenedFiles'] = {
+            self.file_id: {'FileName': str(directory), 'Open': {
+                'EnumerationLocation': 0, 'EnumerationSearchPattern': '',
+            }},
+        }
+        request = smb2.SMB2QueryDirectory()
+        request['FileInformationClass'] = smb2.FILE_DIRECTORY_INFORMATION
+        request['FileID'] = self.file_id
+        request['OutputBufferLength'] = 4096
+        request['Buffer'] = pattern.encode('utf-16le')
+        request['FileNameLength'] = len(request['Buffer'])
+        return SMB2Commands.smb2QueryDirectory(
+            'test', self.server, {'TreeID': self.tree_id if tree_id is None else tree_id, 'Data': request.getData()})
+
+    def _entry_names(self, response):
+        data = response['Buffer']
+        names = []
+        while data:
+            entry = smb.SMBFindFileDirectoryInfo(flags=smb.SMB.FLAGS2_UNICODE, data=data)
+            names.append(entry['FileName'].decode('utf-16le'))
+            offset = entry['NextEntryOffset']
+            if offset == 0:
+                break
+            self.assertLess(offset, len(data))
+            data = data[offset:]
+        return names
+
+    def _link_directory(self, name, target):
+        link = self.share / name
+        if os.name == 'nt':
+            # NTFS directory junctions do not require symlink privileges.
+            try:
+                from _winapi import CreateJunction
+            except ImportError:
+                self.skipTest('Windows directory junctions are unavailable')
+            try:
+                CreateJunction(str(target), str(link))
+            except OSError as exc:
+                if exc.winerror not in (1, 5, 50, 1314):
+                    raise
+                self.skipTest('Cannot create a directory junction: %s' % exc)
+            self.addCleanup(link.rmdir)
+        else:
+            link.symlink_to(target, target_is_directory=True)
+
+    def test_smb2_query_directory_rejects_escaping_patterns(self):
+        for directory, pattern in (
+            (self.share, '../share-outside/*'),
+            (self.share, r'..\share-outside\*.txt'),
+            (self.share, '../missing/*'),
+            (self.subdir, '../../share-outside/outside.txt'),
+            (self.share, str(self.outside / '*')),
+            (self.share, str(self.share / '*')),
+            (self.share, r'\share-outside\*'),
+            (self.share, r'C:share-outside\*'),
+            (self.share, '[!\x00]*.txt'),
+        ):
+            with self.subTest(directory=directory, pattern=pattern):
+                commands, _, status = self._query_directory(directory, pattern)
+                self.assertEqual(status, STATUS_OBJECT_PATH_SYNTAX_BAD)
+                self.assertIsInstance(commands[0], smb2.SMB2Error)
+
+    def test_smb2_query_directory_rejects_link_outside_share(self):
+        self._link_directory('linked', self.outside)
+        for pattern in ('linked/*.txt', 'linked/[!\x00]*.txt'):
+            with self.subTest(pattern=pattern):
+                commands, _, status = self._query_directory(self.share, pattern)
+                self.assertEqual(status, STATUS_OBJECT_PATH_SYNTAX_BAD)
+                self.assertIsInstance(commands[0], smb2.SMB2Error)
+
+    @unittest.skipIf(os.name == 'nt', 'Windows filenames cannot contain wildcards')
+    def test_smb2_query_directory_checks_directory_not_literal_mask_target(self):
+        # The literal mask resolves back into the share, but listdir would run
+        # on the outside directory and disclose the other matching file.
+        (self.outside / '*.txt').symlink_to(self.share / 'root.txt')
+        commands, _, status = self._query_directory(self.share, '../share-outside/*.txt')
+        self.assertEqual(status, STATUS_OBJECT_PATH_SYNTAX_BAD)
+        self.assertIsInstance(commands[0], smb2.SMB2Error)
+
+    def test_smb2_query_directory_skips_match_pointing_outside(self):
+        self._link_directory('linked', self.outside)
+        self._link_directory('linked-inside', self.subdir)
+        commands, _, status = self._query_directory(self.share, '*')
+        self.assertEqual(status, STATUS_SUCCESS)
+        self.assertCountEqual(self._entry_names(commands[0]), ['root.txt', 'subdir', 'linked-inside'])
+
+    def test_smb2_query_directory_does_not_return_share_parent(self):
+        for pattern in ('./*', '*'):
+            with self.subTest(pattern=pattern):
+                commands, _, status = self._query_directory(self.share, pattern)
+                self.assertEqual(status, STATUS_SUCCESS)
+                names = self._entry_names(commands[0])
+                self.assertNotIn('..', names)
+                self.assertIn('root.txt', names)
+                self.assertIn('subdir', names)
+
+        empty = self.share.parent / 'empty-share'
+        empty.mkdir()
+        self.connection['ConnectedShares'][self.tree_id]['path'] = str(empty)
+        commands, _, status = self._query_directory(empty, '*')
+        self.assertEqual(status, STATUS_SUCCESS)
+        self.assertEqual(self._entry_names(commands[0]), ['.'])
+        (empty / 'only.txt').touch()
+        commands, _, status = self._query_directory(empty, '*')
+        self.assertEqual(status, STATUS_SUCCESS)
+        self.assertEqual(self._entry_names(commands[0]), ['only.txt'])
+
+    def test_smb2_query_directory_rejects_tree_without_path(self):
+        # A handle opened on the disk share paired with a pathless tree or IPC$.
+        other_tree = self.tree_id + 1
+        for share in ({}, {'path': '', 'shareName': 'IPC$'}):
+            with self.subTest(share=share):
+                self.connection['ConnectedShares'][other_tree] = share
+                commands, _, status = self._query_directory(self.subdir, '*.txt', tree_id=other_tree)
+                self.assertEqual(status, STATUS_NETWORK_NAME_DELETED)
+                self.assertIsInstance(commands[0], smb2.SMB2Error)
+
+    def test_smb2_query_directory_lists_inside_share(self):
+        for directory, pattern, expected in (
+            (self.share, '', 'root.txt'),
+            (self.share, 'root.txt', 'root.txt'),
+            (self.subdir, '*.txt', 'inside.txt'),
+            (self.share, r'subdir\*.txt', 'inside.txt'),
+            (self.subdir, '../*.txt', 'root.txt'),
+        ):
+            with self.subTest(directory=directory, pattern=pattern):
+                commands, _, status = self._query_directory(directory, pattern)
+                self.assertEqual(status, STATUS_SUCCESS)
+                names = self._entry_names(commands[0])
+                self.assertIn(expected, names)
+                self.assertNotIn('outside.txt', names)
+
+    def test_smb1_find_first2_rejects_escaping_pattern(self):
+        flags = smb.SMB.FLAGS2_UNICODE
+        request = smb.SMBFindFirst2_Parameters(flags)
+        request['SearchAttributes'] = smb.ATTR_DIRECTORY
+        request['SearchCount'] = 10
+        request['Flags'] = 0
+        request['InformationLevel'] = smb.SMB_FIND_FILE_DIRECTORY_INFO
+        request['SearchStorageType'] = 0
+        request['FileName'] = r'..\share-outside\*.txt'.encode('utf-16le')
+        _, _, data, status = TRANS2Commands.findFirst2(
+            'test', self.server, {'Tid': self.tree_id, 'Flags2': flags}, request.getData(), b'', 4096)
+        self.assertEqual(status, STATUS_OBJECT_PATH_SYNTAX_BAD)
+        self.assertEqual(data, b'')
 
 
 class SimpleSMBServerFuncTests(unittest.TestCase):

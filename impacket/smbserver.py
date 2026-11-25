@@ -469,24 +469,28 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         encoding = 'ascii'
 
     fileName = normalize_path(fileName)
+    if isSMB2:
+        path = os.path.realpath(path)
     pathName = os.path.join(path, fileName)
-
-    if not isInFileJail(path, fileName):
-        LOG.error("Path not in current working directory")
-        return [], 0, STATUS_OBJECT_PATH_SYNTAX_BAD
-
-    files = []
+    jailTarget = fileName
 
     if pathName.find('*') == -1 and pathName.find('?') == -1:
         # No search patterns
         pattern = ''
     else:
-        pattern = os.path.basename(pathName)
-        dirName = os.path.dirname(pathName)
+        dirName, pattern = os.path.split(pathName)
+        if isSMB2:
+            # The mask can resolve differently from the directory we actually list.
+            jailTarget = dirName
 
-    # Always add . and .. Not that important for Windows, but Samba whines if
-    # not present (for * search only)
-    if pattern == '*':
+    if not isInFileJail(path, jailTarget):
+        LOG.error("Path not in current working directory")
+        return [], 0, STATUS_OBJECT_PATH_SYNTAX_BAD
+
+    files = []
+
+    # Preserve the synthetic dot entries for SMB1.
+    if pattern == '*' and not isSMB2:
         files.append(os.path.join(dirName, '.'))
         files.append(os.path.join(dirName, '..'))
 
@@ -497,11 +501,21 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         for file in os.listdir(dirName):
             if fnmatch.fnmatch(file.lower(), pattern.lower()):
                 entry = os.path.join(dirName, file)
+                if isSMB2 and not isInFileJail(path, entry):
+                    continue
                 if os.path.isdir(entry):
                     if searchAttributes & smb.ATTR_DIRECTORY:
                         files.append(entry)
                 else:
                     files.append(entry)
+
+        # Keep empty SMB2 wildcard listings successful without stat'ing the
+        # physical parent of the share root.
+        if isSMB2 and pattern == '*' and not files:
+            files.append(os.path.join(dirName, '.'))
+            parent = os.path.join(dirName, '..')
+            if isInFileJail(path, parent):
+                files.append(parent)
     else:
         if os.path.exists(pathName):
             files.append(pathName)
@@ -4099,7 +4113,8 @@ class SMB2Commands:
         respSMBCommand['Buffer'] = b'\x00'
 
         # The server MUST locate the tree connection, as specified in section 3.3.5.2.11.
-        if (recvPacket['TreeID'] in connData['ConnectedShares']) is False:
+        sharePath = connData['ConnectedShares'].get(recvPacket['TreeID'], {}).get('path')
+        if not sharePath:
             return [smb2.SMB2Error()], None, STATUS_NETWORK_NAME_DELETED
 
         # Next, the server MUST locate the open for the directory to be queried
@@ -4153,6 +4168,10 @@ class SMB2Commands:
         # SHOULD<327> set Open.EnumerationSearchPattern as "*" to search all entries.
 
         pattern = queryDirectoryRequest['Buffer'].decode('utf-16le')
+        # SMB paths use Windows syntax even when the server runs on Unix.
+        if '\x00' in pattern or pattern.startswith(('/', '\\')) or ntpath.splitdrive(pattern)[0]:
+            return [smb2.SMB2Error()], None, STATUS_OBJECT_PATH_SYNTAX_BAD
+
         if connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] == 0 and \
                 connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] == '':
             if pattern == '':
@@ -4166,19 +4185,18 @@ class SMB2Commands:
                 queryDirectoryRequest['FileNameLength'] > 0:
             connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] = pattern
 
-        pathName = os.path.join(os.path.normpath(connData['OpenedFiles'][fileID]['FileName']), pattern)
-        searchResult, searchCount, errorCode = findFirst2(os.path.dirname(pathName),
-                                                          os.path.basename(pathName),
-                                                          queryDirectoryRequest['FileInformationClass'],
-                                                          smb.ATTR_DIRECTORY, isSMB2=True)
+        # Search relative to the opened directory, but always jail the search
+        # against the tree's configured share root, not the pattern's parent.
+        try:
+            relativeDirectory = os.path.relpath(fileName, sharePath)
+        except ValueError:  # The open and the share are on different drives.
+            return [smb2.SMB2Error()], None, STATUS_OBJECT_PATH_SYNTAX_BAD
+        searchPath = os.path.join(relativeDirectory, pattern)
+        searchResult, searchCount, errorCode = findFirst2(
+            sharePath, searchPath, queryDirectoryRequest['FileInformationClass'], smb.ATTR_DIRECTORY, isSMB2=True)
 
         if errorCode != STATUS_SUCCESS:
             return [smb2.SMB2Error()], None, errorCode
-
-        if searchCount > 2 and pattern == '*':
-            # strip . and ..
-            searchCount -= 2
-            searchResult = searchResult[2:]
 
         if searchCount == 0 and connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] == 0:
             return [smb2.SMB2Error()], None, STATUS_NO_SUCH_FILE
