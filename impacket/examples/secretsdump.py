@@ -440,10 +440,7 @@ class RemoteOperations:
         self.__policyHandle = None
 
         self.__drsr = None
-        self.__hDrs = None
-        self.__NtdsDsaObjectGuid = None
-        self.__ppartialAttrSet = None
-        self.__prefixTable = []
+        self.__drsClient = None
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
 
@@ -553,58 +550,18 @@ class RemoteOperations:
             # Get domain name from credentials cached
             self.__domainName = rpc.get_credentials()[2]
 
-        request = drsuapi.DRSBind()
-        request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
-        drs = drsuapi.DRS_EXTENSIONS_INT()
-        drs['cb'] = len(drs) #- 4
-        drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | \
-                         drsuapi.DRS_EXT_STRONG_ENCRYPTION | drsuapi.DRS_EXT_NONDOMAIN_NCS
-        drs['SiteObjGuid'] = drsuapi.NULLGUID
-        drs['Pid'] = 0
-        drs['dwReplEpoch'] = 0
-        drs['dwFlagsExt'] = 0
-        drs['ConfigObjGUID'] = drsuapi.NULLGUID
-        # I'm uber potential (c) Ben
-        drs['dwExtCaps'] = 0xffffffff
-        request['pextClient']['cb'] = len(drs)
-        request['pextClient']['rgb'] = list(drs.getData())
-        resp = self.__drsr.request(request)
-        if LOG.level == logging.DEBUG:
-            LOG.debug('DRSBind() answer')
-            resp.dump()
+        self.setDrsClient(drsuapi.DRSUAPIClient(self.__drsr, self.__domainName))
 
-        # Let's dig into the answer to check the dwReplEpoch. This field should match the one we send as part of
-        # DRSBind's DRS_EXTENSIONS_INT(). If not, it will fail later when trying to sync data.
-        drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
+    def setDrsClient(self, drsClient):
+        """Use an authenticated DRS client supplied by a caller such as ntlmrelayx."""
+        drsClient.bind()
+        self.__drsClient = drsClient
+        self.__drsr = drsClient.getDCE()
 
-        # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
-        ppextServer = b''.join(resp['ppextServer']['rgb']) + b'\x00' * (
-        len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
-        drsExtensionsInt.fromString(ppextServer)
-
-        if drsExtensionsInt['dwReplEpoch'] != 0:
-            # Different epoch, we have to call DRSBind again
-            if LOG.level == logging.DEBUG:
-                LOG.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
-                    'dwReplEpoch'])
-            drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
-            request['pextClient']['cb'] = len(drs)
-            request['pextClient']['rgb'] = list(drs.getData())
-            resp = self.__drsr.request(request)
-
-        self.__hDrs = resp['phDrs']
-
-        # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
-        resp = drsuapi.hDRSDomainControllerInfo(self.__drsr, self.__hDrs, self.__domainName, 2)
-        if LOG.level == logging.DEBUG:
-            LOG.debug('DRSDomainControllerInfo() answer')
-            resp.dump()
-
-        if resp['pmsgOut']['V2']['cItems'] > 0:
-            self.__NtdsDsaObjectGuid = resp['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
-        else:
-            LOG.error("Couldn't get DC info for domain %s" % self.__domainName)
-            raise Exception('Fatal, aborting')
+    def __getDrsClient(self):
+        if self.__drsClient is None:
+            self.__connectDrds()
+        return self.__drsClient
 
     def getSamr(self):
         return self.__samr
@@ -650,124 +607,27 @@ class RemoteOperations:
         return resp['PolicyInformation']['PolicyDnsDomainInfo']['Name']
 
     def DRSGetTrustedDomain(self, tdoGuid):
-        # Replicate a trustedDomain object requesting only its trustAuth* attributes.
-        if self.__drsr is None:
-            self.__connectDrds()
-
-        dsName = drsuapi.DSNAME()
-        dsName['SidLen'] = 0
-        dsName['Guid'] = string_to_bin(tdoGuid)
-        dsName['Sid'] = ''
-        dsName['NameLen'] = 0
-        dsName['StringName'] = '\x00'
-        dsName['structLen'] = len(dsName.getData())
-
-        request = drsuapi.DRSGetNCChanges()
-        request['hDrs'] = self.__hDrs
-        request['dwInVersion'] = 8
-        request['pmsgIn']['tag'] = 8
-        request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__NtdsDsaObjectGuid
-        request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__NtdsDsaObjectGuid
-        request['pmsgIn']['V8']['pNC'] = dsName
-        request['pmsgIn']['V8']['usnvecFrom']['usnHighObjUpdate'] = 0
-        request['pmsgIn']['V8']['usnvecFrom']['usnHighPropUpdate'] = 0
-        request['pmsgIn']['V8']['pUpToDateVecDest'] = NULL
-        request['pmsgIn']['V8']['ulFlags'] = drsuapi.DRS_INIT_SYNC | drsuapi.DRS_WRIT_REP
-        request['pmsgIn']['V8']['cMaxObjects'] = 1
-        request['pmsgIn']['V8']['cMaxBytes'] = 0
-        request['pmsgIn']['V8']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ
-
-        prefixTable = []
-        ppartialAttrSet = drsuapi.PARTIAL_ATTR_VECTOR_V1_EXT()
-        ppartialAttrSet['dwVersion'] = 1
-        ppartialAttrSet['cAttrs'] = len(TRUST_ATTRTYP_TO_ATTID)
-        for attId in TRUST_ATTRTYP_TO_ATTID.values():
-            ppartialAttrSet['rgPartialAttr'].append(drsuapi.MakeAttid(prefixTable, attId))
-        request['pmsgIn']['V8']['pPartialAttrSet'] = ppartialAttrSet
-        request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(prefixTable)
-        request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = prefixTable
-        request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
-        return self.__drsr.request(request)
+        """Replicate a trustedDomain object with only the attributes needed for trust keys."""
+        return self.__getDrsClient().getRawRecordByGuid(
+            tdoGuid, TRUST_ATTRTYP_TO_ATTID.values()
+        )
 
     def DRSCrackNames(self, formatOffered=drsuapi.DS_NAME_FORMAT.DS_DISPLAY_NAME,
                       formatDesired=drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name=''):
-        if self.__drsr is None:
-            self.__connectDrds()
-
         LOG.debug('Calling DRSCrackNames for %s ' % name)
-        resp = drsuapi.hDRSCrackNames(self.__drsr, self.__hDrs, 0, formatOffered, formatDesired, (name,))
-        return resp
+        return self.__getDrsClient().crackNames(formatOffered, formatDesired, name)
 
-    # Wrapper for calling _DRSGetNCChanges with a GUID
     def DRSGetNCChangesGuid(self, userGuid):
-        dsName = drsuapi.DSNAME()
-        dsName['SidLen'] = 0
-        dsName['Guid'] = string_to_bin(userGuid[1:-1])
-        dsName['Sid'] = ''
-        dsName['NameLen'] = 0
-        dsName['StringName'] = ('\x00')
-        dsName['structLen'] = len(dsName.getData())
+        """Replicate an account by GUID while preserving the historical raw response API."""
+        return self.__getDrsClient().getRawRecordByGuid(
+            userGuid, NTDSHashes.ATTRTYP_TO_ATTID.values()
+        )
 
-        return self._DRSGetNCChanges(userGuid, dsName)
-
-    # Wrapper for calling _DRSGetNCChanges with a SID
     def DRSGetNCChangesSid(self, userSid):
-
-        # Convert string SID to 2.4.2.2 packet SID
-        tsid = SID()
-        tsid.fromCanonical(userSid)
-        packetSid  = pack("<B", tsid.fields['Revision'])
-        packetSid += pack("<B", tsid.fields['SubAuthorityCount'])
-        packetSid += tsid.fields['IdentifierAuthority'].fields['Value']
-        packetSid += tsid.fields['SubAuthority']
-
-        dsName = drsuapi.DSNAME()
-        dsName['SidLen'] = len(packetSid)
-        dsName['Guid'] = 0
-        dsName['Sid'] = packetSid
-        dsName['NameLen'] = 0
-        dsName['StringName'] = ('\x00')
-        dsName['structLen'] = len(dsName.getData())
-
-        return self._DRSGetNCChanges(userSid, dsName)
-
-    def _DRSGetNCChanges(self, userEntry, dsName):
-        if self.__drsr is None:
-            self.__connectDrds()
-
-        LOG.debug('Calling DRSGetNCChanges for %s ' % userEntry)
-        request = drsuapi.DRSGetNCChanges()
-        request['hDrs'] = self.__hDrs
-        request['dwInVersion'] = 8
-
-        request['pmsgIn']['tag'] = 8
-        request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__NtdsDsaObjectGuid
-        request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__NtdsDsaObjectGuid
-
-        request['pmsgIn']['V8']['pNC'] = dsName
-
-        request['pmsgIn']['V8']['usnvecFrom']['usnHighObjUpdate'] = 0
-        request['pmsgIn']['V8']['usnvecFrom']['usnHighPropUpdate'] = 0
-
-        request['pmsgIn']['V8']['pUpToDateVecDest'] = NULL
-
-        request['pmsgIn']['V8']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_WRIT_REP
-        request['pmsgIn']['V8']['cMaxObjects'] = 1
-        request['pmsgIn']['V8']['cMaxBytes'] = 0
-        request['pmsgIn']['V8']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ
-        if self.__ppartialAttrSet is None:
-            self.__prefixTable = []
-            self.__ppartialAttrSet = drsuapi.PARTIAL_ATTR_VECTOR_V1_EXT()
-            self.__ppartialAttrSet['dwVersion'] = 1
-            self.__ppartialAttrSet['cAttrs'] = len(NTDSHashes.ATTRTYP_TO_ATTID)
-            for attId in list(NTDSHashes.ATTRTYP_TO_ATTID.values()):
-                self.__ppartialAttrSet['rgPartialAttr'].append(drsuapi.MakeAttid(self.__prefixTable , attId))
-        request['pmsgIn']['V8']['pPartialAttrSet'] = self.__ppartialAttrSet
-        request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(self.__prefixTable)
-        request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = self.__prefixTable
-        request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
-
-        return self.__drsr.request(request)
+        """Replicate an account by SID while preserving the historical raw response API."""
+        return self.__getDrsClient().getRawRecordBySid(
+            userSid, NTDSHashes.ATTRTYP_TO_ATTID.values()
+        )
 
     def getDomainUsers(self, enumerationContext=0):
         if self.__samr is None:
@@ -2675,12 +2535,14 @@ _TRUST_KERBEROS_TYPE = {17: 'aes128-cts-hmac-sha1-96', 18: 'aes256-cts-hmac-sha1
 # Attribute identifiers replicated for a trustedDomain object via DRSUAPI.
 TRUST_ATTRTYP_TO_ATTID = {
     'trustPartner': '1.2.840.113556.1.4.133',
+    'flatName': '1.2.840.113556.1.4.511',
     'trustAuthIncoming': '1.2.840.113556.1.4.129',
     'trustAuthOutgoing': '1.2.840.113556.1.4.135',
 }
 # Fallback mapping when the prefix table does not let us resolve the OID.
 TRUST_NAME_TO_ATTRTYP = {
     'trustPartner': 0x90085,
+    'flatName': 0x901FF,
     'trustAuthIncoming': 0x90081,
     'trustAuthOutgoing': 0x90087,
 }
@@ -2799,6 +2661,7 @@ class NTDSHashes:
         'supplementalCredentials': 0x9007D,
         'objectSid': 0x90092,
         'userAccountControl':0x90008,
+        'sAMAccountType': 0x9012E,
     }
 
     ATTRTYP_TO_ATTID = {
@@ -2812,6 +2675,7 @@ class NTDSHashes:
         'objectSid': '1.2.840.113556.1.4.146',
         'pwdLastSet': '1.2.840.113556.1.4.96',
         'userAccountControl':'1.2.840.113556.1.4.8',
+        'sAMAccountType': '1.2.840.113556.1.4.302',
     }
 
     KERBEROS_TYPE = {
@@ -2884,7 +2748,7 @@ class NTDSHashes:
                  justUser=None, skipUser=None, ldapFilter=None, printUserStatus=False, localDomainSid=None,
                  trustKeys=False, domainFQDN=None, justTrustKeys=False, securityHive=None,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
-                 resumeSessionMgr=ResumeSessionMgrInFile):
+                 resumeSessionMgr=ResumeSessionMgrInFile, drsClient=None):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         # -just-trust-keys implies -trust-keys, but skips the account enumeration entirely.
@@ -2897,6 +2761,8 @@ class NTDSHashes:
         self.__useVSSMethod = useVSSMethod
         self.__remoteSSMethodWMINTDS = remoteSSMethodWMINTDS
         self.__remoteOps = remoteOps
+        # A caller-provided client allows DRS replication without RemoteOperations or SMB.
+        self.__drsClient = drsClient
         self.__pwdLastSet = pwdLastSet
         self.__printUserStatus = printUserStatus
         self.__localDomainSid = localDomainSid
@@ -3126,6 +2992,18 @@ class NTDSHashes:
             dt = datetime.fromtimestamp(t)
             return dt.strftime("%Y-%m-%d %H:%M")
 
+    def __getDrsDCE(self):
+        if self.__drsClient is not None:
+            return self.__drsClient.getDCE()
+        return self.__remoteOps.getDrsr()
+
+    @staticmethod
+    def __getDrsEntry(record, prefixTable=None):
+        if isinstance(record, drsuapi.DRSUAPIRecord):
+            return record.entry, record.prefixTable
+        replyVersion = 'V%d' % record['pdwOutVersion']
+        return record['pmsgOut'][replyVersion]['pObjects']['Entinf'], prefixTable
+
     def __decryptSupplementalInfo(self, record, prefixTable=None, keysFile=None, clearTextFile=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         haveInfo = False
@@ -3152,8 +3030,9 @@ class NTDSHashes:
         else:
             domain = None
             userName = None
-            replyVersion = 'V%d' % record['pdwOutVersion']
-            for attr in record['pmsgOut'][replyVersion]['pObjects']['Entinf']['AttrBlock']['pAttr']:
+            entry, prefixTable = self.__getDrsEntry(record, prefixTable)
+            objectName = entry['pName']['StringName'][:-1]
+            for attr in entry['AttrBlock']['pAttr']:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
@@ -3177,16 +3056,15 @@ class NTDSHashes:
                         try:
                             userName = b''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            LOG.error(
-                                'Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.error('Cannot get sAMAccountName for %s' % objectName)
                             userName = 'unknown'
                     else:
-                        LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get sAMAccountName for %s' % objectName)
                         userName = 'unknown'
                 if attId == LOOKUP_TABLE['supplementalCredentials']:
                     if attr['AttrVal']['valCount'] > 0:
                         blob = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                        plainText = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), blob)
+                        plainText = drsuapi.DecryptAttributeValue(self.__getDrsDCE(), blob)
                         if len(plainText) > 24:
                             haveInfo = True
             if domain is not None:
@@ -3358,16 +3236,17 @@ class NTDSHashes:
                         self.__writeOutput(outputFile, answer + '\n')
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
         else:
-            replyVersion = 'V%d' %record['pdwOutVersion']
-            LOG.debug('Decrypting hash for user: %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+            entry, prefixTable = self.__getDrsEntry(record, prefixTable)
+            objectName = entry['pName']['StringName'][:-1]
+            LOG.debug('Decrypting hash for user: %s' % objectName)
             domain = None
             if self.__history:
                 LMHistory = []
                 NTHistory = []
 
-            rid = unpack('<L', record['pmsgOut'][replyVersion]['pObjects']['Entinf']['pName']['Sid'][-4:])[0]
+            rid = unpack('<L', entry['pName']['Sid'][-4:])[0]
 
-            for attr in record['pmsgOut'][replyVersion]['pObjects']['Entinf']['AttrBlock']['pAttr']:
+            for attr in entry['AttrBlock']['pAttr']:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
@@ -3381,14 +3260,14 @@ class NTDSHashes:
                 if attId == LOOKUP_TABLE['dBCSPwd']:
                     if attr['AttrVal']['valCount'] > 0:
                         encrypteddBCSPwd = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                        encryptedLMHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encrypteddBCSPwd)
+                        encryptedLMHash = drsuapi.DecryptAttributeValue(self.__getDrsDCE(), encrypteddBCSPwd)
                         LMHash = drsuapi.removeDESLayer(encryptedLMHash, rid)
                     else:
                         LMHash = ntlm.LMOWFv1('', '')
                 elif attId == LOOKUP_TABLE['unicodePwd']:
                     if attr['AttrVal']['valCount'] > 0:
                         encryptedUnicodePwd = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                        encryptedNTHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedUnicodePwd)
+                        encryptedNTHash = drsuapi.DecryptAttributeValue(self.__getDrsDCE(), encryptedUnicodePwd)
                         NTHash = drsuapi.removeDESLayer(encryptedNTHash, rid)
                     else:
                         NTHash = ntlm.NTOWFv1('', '')
@@ -3405,23 +3284,23 @@ class NTDSHashes:
                         try:
                             userName = b''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.error('Cannot get sAMAccountName for %s' % objectName)
                             userName = 'unknown'
                     else:
-                        LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get sAMAccountName for %s' % objectName)
                         userName = 'unknown'
                 elif attId == LOOKUP_TABLE['objectSid']:
                     if attr['AttrVal']['valCount'] > 0:
                         objectSid = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     else:
-                        LOG.error('Cannot get objectSid for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get objectSid for %s' % objectName)
                         objectSid = rid
                 elif attId == LOOKUP_TABLE['pwdLastSet']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             pwdLastSet = self.__fileTimeToDateTime(unpack('<Q', b''.join(attr['AttrVal']['pAVal'][0]['pVal']))[0])
                         except:
-                            LOG.error('Cannot get pwdLastSet for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.error('Cannot get pwdLastSet for %s' % objectName)
                             pwdLastSet = 'N/A'
                 elif self.__printUserStatus and attId == LOOKUP_TABLE['userAccountControl']:
                     if attr['AttrVal']['valCount'] > 0:
@@ -3436,21 +3315,21 @@ class NTDSHashes:
                     if attId == LOOKUP_TABLE['lmPwdHistory']:
                         if attr['AttrVal']['valCount'] > 0:
                             encryptedLMHistory = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                            tmpLMHistory = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedLMHistory)
+                            tmpLMHistory = drsuapi.DecryptAttributeValue(self.__getDrsDCE(), encryptedLMHistory)
                             for i in range(0, len(tmpLMHistory) // 16):
                                 LMHashHistory = drsuapi.removeDESLayer(tmpLMHistory[i * 16:(i + 1) * 16], rid)
                                 LMHistory.append(LMHashHistory)
                         else:
-                            LOG.debug('No lmPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.debug('No lmPwdHistory for user %s' % objectName)
                     elif attId == LOOKUP_TABLE['ntPwdHistory']:
                         if attr['AttrVal']['valCount'] > 0:
                             encryptedNTHistory = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                            tmpNTHistory = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedNTHistory)
+                            tmpNTHistory = drsuapi.DecryptAttributeValue(self.__getDrsDCE(), encryptedNTHistory)
                             for i in range(0, len(tmpNTHistory) // 16):
                                 NTHashHistory = drsuapi.removeDESLayer(tmpNTHistory[i * 16:(i + 1) * 16], rid)
                                 NTHistory.append(NTHashHistory)
                         else:
-                            LOG.debug('No ntPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.debug('No ntPwdHistory for user %s' % objectName)
 
             if domain is not None:
                 userName = '%s\\%s' % (domain, userName)
@@ -3592,8 +3471,11 @@ class NTDSHashes:
         LOG.info('Dumped keys for trusted domain object(s) (%d secret line(s))' % count)
 
     def __dumpTrustKeysOnline(self, outputFile=None):
-        # Online (DRSUAPI) trusted domain key dump. Discovery is over LSARPC, then each
-        # trustedDomain object is replicated and its trustAuth* attributes are decrypted.
+        # The injected client finds trustedDomain objects in the naming context. The legacy
+        # RemoteOperations path discovers them over LSARPC and then replicates each object.
+        if self.__drsClient is not None:
+            self.__dumpTrustKeysFromDrsClient(outputFile)
+            return
         if self.__remoteOps is None:
             return
         domain = self.__domainFQDN
@@ -3620,17 +3502,18 @@ class NTDSHashes:
             localFlat = self.__remoteOps.getLocalDomainFlatName()
         except Exception:
             LOG.debug('Could not query the local domain flat name; the outgoing trust account key will be omitted', exc_info=True)
-        drsr = self.__remoteOps.getDrsr()
         for partner, partnerFlat in trusts:
             try:
-                self.__dumpTrustKeyOnlineOne(partner, partnerFlat, localFlat, baseDN, domain, drsr, outputFile=outputFile)
+                self.__dumpTrustKeyOnlineOne(
+                    partner, partnerFlat, localFlat, baseDN, domain, outputFile=outputFile
+                )
             except Exception as e:
                 LOG.debug('Exception', exc_info=True)
                 LOG.error('Failed to dump trust %s: %s' % (partner, str(e)))
         if outputFile is not None:
             outputFile.flush()
 
-    def __dumpTrustKeyOnlineOne(self, partner, partnerFlat, localFlat, baseDN, domain, drsr, outputFile=None):
+    def __dumpTrustKeyOnlineOne(self, partner, partnerFlat, localFlat, baseDN, domain, outputFile=None):
         # Resolve the TDO object DN to its GUID with DRSCrackNames (no LDAP).
         dn = 'CN=%s,CN=System,%s' % (partner, baseDN)
         cracked = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
@@ -3642,39 +3525,64 @@ class NTDSHashes:
         tdoGuid = result['rItems'][0]['pName'][:-1].strip('{}')
 
         record = self.__remoteOps.DRSGetTrustedDomain(tdoGuid)
-        # DRSGetTrustedDomain/DRSCrackNames connect the DRS handle lazily. Re-fetch it here so
-        # DecryptAttributeValue gets a live handle even when the account enumeration was skipped
-        # (-just-trust-keys), where getDrsr() returned None before the first DRS call.
-        drsr = self.__remoteOps.getDrsr()
         reply = 'V%d' % record['pdwOutVersion']
         if record['pmsgOut'][reply]['cNumObjects'] == 0:
             LOG.error('No object replicated for %s' % partner)
             return
 
-        prefixTable = record['pmsgOut'][reply]['PrefixTableSrc']['pPrefixEntry']
-        incoming = outgoing = None
-        for attr in record['pmsgOut'][reply]['pObjects']['Entinf']['AttrBlock']['pAttr']:
-            try:
-                attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
-                lookup = TRUST_ATTRTYP_TO_ATTID
-            except Exception:
-                attId = attr['attrTyp']
-                lookup = TRUST_NAME_TO_ATTRTYP
+        drsRecord = drsuapi.DRSUAPIRecord(
+            record['pmsgOut'][reply]['pObjects']['Entinf'],
+            record['pmsgOut'][reply]['PrefixTableSrc']['pPrefixEntry'],
+        )
+        self.__dumpTrustRecord(drsRecord, partner, partnerFlat, localFlat, domain, outputFile)
 
-            # A one-way trust still carries the opposite direction's attribute with an empty
-            # key struct that fails to parse: skip those silently.
-            if attId == lookup['trustAuthIncoming'] and attr['AttrVal']['valCount'] > 0:
-                try:
-                    enc = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                    incoming = _parse_trust_auth_info(drsuapi.DecryptAttributeValue(drsr, enc))
-                except Exception:
-                    incoming = None
-            elif attId == lookup['trustAuthOutgoing'] and attr['AttrVal']['valCount'] > 0:
-                try:
-                    enc = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                    outgoing = _parse_trust_auth_info(drsuapi.DecryptAttributeValue(drsr, enc))
-                except Exception:
-                    outgoing = None
+    def __getTrustAttributeValue(self, record, name):
+        return record.getAttributeValue(
+            TRUST_ATTRTYP_TO_ATTID[name], TRUST_NAME_TO_ATTRTYP[name]
+        )
+
+    def __dumpTrustKeysFromDrsClient(self, outputFile):
+        domain = self.__domainFQDN or self.__drsClient.getDomainName()
+        if not domain:
+            LOG.error('Cannot derive trust keys without the local domain FQDN')
+            return
+        try:
+            localFlat = self.__drsClient.getDomainFlatName()
+        except Exception:
+            localFlat = None
+            LOG.debug('Could not resolve the local domain flat name', exc_info=True)
+
+        count = 0
+        for record in self.__drsClient.iterDomainRecords(TRUST_ATTRTYP_TO_ATTID.values()):
+            partner = self.__getTrustAttributeValue(record, 'trustPartner')
+            if partner is None:
+                continue
+            partner = partner.decode('utf-16le')
+            partnerFlat = self.__getTrustAttributeValue(record, 'flatName')
+            partnerFlat = partnerFlat.decode('utf-16le') if partnerFlat else None
+            self.__dumpTrustRecord(record, partner, partnerFlat, localFlat, domain, outputFile)
+            count += 1
+        if count == 0:
+            LOG.info('No trusted domain found')
+        if outputFile is not None:
+            outputFile.flush()
+
+    def __dumpTrustRecord(self, record, partner, partnerFlat, localFlat, domain, outputFile):
+        drsr = self.__getDrsDCE()
+        incoming = outgoing = None
+        for name, isIncoming in (('trustAuthIncoming', True), ('trustAuthOutgoing', False)):
+            encrypted = self.__getTrustAttributeValue(record, name)
+            if encrypted is None:
+                continue
+            try:
+                parsed = _parse_trust_auth_info(drsuapi.DecryptAttributeValue(drsr, encrypted))
+                if isIncoming:
+                    incoming = parsed
+                else:
+                    outgoing = parsed
+            except Exception:
+                # One-way trusts can expose the opposite attribute with an empty key structure.
+                pass
 
         for parsed, isIncoming in ((incoming, True), (outgoing, False)):
             if not parsed:
@@ -3690,6 +3598,65 @@ class NTDSHashes:
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
+
+    def __getDrsAttributeValue(self, record, name):
+        return record.getAttributeValue(self.ATTRTYP_TO_ATTID[name], self.NAME_TO_ATTRTYP[name])
+
+    def __dumpFromDrsClient(self, hashesOutputFile, keysOutputFile, clearTextOutputFile, skipUsers):
+        if self.__ldapFilter is not None:
+            raise ValueError('LDAP filters are not supported by the transport-independent DRS client')
+
+        attributes = list(self.ATTRTYP_TO_ATTID.values())
+        self.__drsClient.bind()
+        if self.__justUser is not None:
+            records = (self.__drsClient.getRecord(self.__justUser, attributes),)
+            resumeSid = None
+        else:
+            records = self.__drsClient.iterDomainRecords(attributes)
+            if self.__resumeSession.hasResumeData():
+                resumeSid = self.__resumeSession.getResumeData()
+                LOG.info('Resuming from SID %s, be patient' % resumeSid)
+            else:
+                resumeSid = None
+                self.__resumeSession.beginTransaction()
+
+        for record in records:
+            if self.__justUser is None:
+                accountType = self.__getDrsAttributeValue(record, 'sAMAccountType')
+                if accountType is None or unpack('<L', accountType)[0] not in self.ACCOUNT_TYPES:
+                    continue
+            userName = self.__getDrsAttributeValue(record, 'sAMAccountName')
+            userName = userName.decode('utf-16le') if userName else 'unknown'
+            if userName in skipUsers:
+                continue
+            objectSid = self.__getDrsAttributeValue(record, 'objectSid')
+            if objectSid is None:
+                objectSid = record.entry['pName']['Sid']
+                if objectSid and isinstance(objectSid[0], int):
+                    objectSid = bytes(objectSid)
+                else:
+                    objectSid = b''.join(objectSid)
+            userSid = SID(data=objectSid).formatCanonical()
+            if resumeSid is not None:
+                if resumeSid == userSid:
+                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid)
+                    resumeSid = None
+                continue
+
+            try:
+                self.__decryptHash(record, outputFile=hashesOutputFile)
+                if self.__justNTLM is False:
+                    self.__decryptSupplementalInfo(record, keysFile=keysOutputFile,
+                                                   clearTextFile=clearTextOutputFile)
+            except Exception as e:
+                LOG.error('Error while processing user %s!' % userName)
+                LOG.debug('Exception', exc_info=True)
+                LOG.error(str(e))
+            if self.__justUser is None:
+                self.__resumeSession.writeResumeData(userSid)
+
+        if self.__justUser is None:
+            self.__resumeSession.clearResumeData()
 
     def dump(self):
         hashesOutputFile = None
@@ -3714,7 +3681,9 @@ class NTDSHashes:
             if self.__NTDS is None:
                 # DRSUAPI method, checking whether target is a DC
                 try:
-                    if self.__remoteOps is not None:
+                    if self.__drsClient is not None:
+                        self.__drsClient.bind()
+                    elif self.__remoteOps is not None:
                         try:
                             self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
                         except:
@@ -3726,7 +3695,7 @@ class NTDSHashes:
                             else:
                                 raise
                     else:
-                        raise Exception('No remote Operations available')
+                        raise Exception('No DRS client or remote operations available')
                 except Exception as e:
                     LOG.debug('Exiting NTDSHashes.dump() because %s' % e)
                     # Target's not a DC
@@ -3825,6 +3794,11 @@ class NTDSHashes:
                         except Exception as e:
                             LOG.debug('Exception', exc_info=True)
                             LOG.error('Trusted domain key dump failed: %s' % str(e))
+            elif self.__drsClient is not None and not self.__justTrustKeys:
+                LOG.info('Using the transport-independent DRSUAPI client to get NTDS.DIT secrets')
+                self.__dumpFromDrsClient(
+                    hashesOutputFile, keysOutputFile, clearTextOutputFile, skipUsers
+                )
             elif not self.__justTrustKeys:
                 LOG.info('Using the DRSUAPI method to get NTDS.DIT secrets')
                 status = STATUS_MORE_ENTRIES

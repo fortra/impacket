@@ -461,7 +461,7 @@ class RAISECHILD:
         self.__domainSid = ''
         self.__doKerberos = options.k
         self.__drsr = None
-        self.__ppartialAttrSet = None
+        self.__drsClient = None
         self.__creds = {}
 
         self.__creds['username'] = username
@@ -654,59 +654,23 @@ class RAISECHILD:
         self.__drsr.connect()
         self.__drsr.bind(drsuapi.MSRPC_UUID_DRSUAPI)
 
-        request = drsuapi.DRSBind()
-        request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
-        drs = drsuapi.DRS_EXTENSIONS_INT()
-        drs['cb'] = len(drs) #- 4
-        drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 |\
-                         drsuapi.DRS_EXT_STRONG_ENCRYPTION
-        drs['SiteObjGuid'] = drsuapi.NULLGUID
-        drs['Pid'] = 0
-        drs['dwReplEpoch'] = 0
-        drs['dwFlagsExt'] = 0
-        drs['ConfigObjGUID'] = drsuapi.NULLGUID
-        drs['dwExtCaps'] = 127
-        request['pextClient']['cb'] = len(drs.getData())
-        request['pextClient']['rgb'] = list(drs.getData())
-        resp = self.__drsr.request(request)
-
-        # Let's dig into the answer to check the dwReplEpoch. This field should match the one we send as part of
-        # DRSBind's DRS_EXTENSIONS_INT(). If not, it will fail later when trying to sync data.
-        drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
-
-        # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
-        ppextServer = b''.join(resp['ppextServer']['rgb']) + b'\x00' * (
-        len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
-        drsExtensionsInt.fromString(ppextServer)
-
-        if drsExtensionsInt['dwReplEpoch'] != 0:
-            # Different epoch, we have to call DRSBind again
-            if logging.getLogger().level == logging.DEBUG:
-                logging.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
-                    'dwReplEpoch'])
-            drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
-            request['pextClient']['cb'] = len(drs)
-            request['pextClient']['rgb'] = list(drs.getData())
-            resp = self.__drsr.request(request)
-
-        self.__hDrs = resp['phDrs']
-
-        # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
-        resp = drsuapi.hDRSDomainControllerInfo(self.__drsr, self.__hDrs, domainName, 2)
-
-        if resp['pmsgOut']['V2']['cItems'] > 0:
-            self.__NtdsDsaObjectGuid = resp['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
-        else:
-            logging.error("Couldn't get DC info for domain %s" % domainName)
-            raise Exception('Fatal, aborting')
+        extensions = (
+            drsuapi.DRS_EXT_GETCHGREQ_V6 |
+            drsuapi.DRS_EXT_GETCHGREPLY_V6 |
+            drsuapi.DRS_EXT_GETCHGREQ_V8 |
+            drsuapi.DRS_EXT_STRONG_ENCRYPTION
+        )
+        self.__drsClient = drsuapi.DRSUAPIClient(
+            self.__drsr, domainName, extensions=extensions, extCaps=127
+        )
+        self.__drsClient.bind()
 
     def DRSCrackNames(self, target, formatOffered=drsuapi.DS_NAME_FORMAT.DS_DISPLAY_NAME,
                       formatDesired=drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name='', creds=None):
         if self.__drsr is None:
             self.__connectDrds(target, creds)
 
-        resp = drsuapi.hDRSCrackNames(self.__drsr, self.__hDrs, 0, formatOffered, formatDesired, (name,))
-        return resp
+        return self.__drsClient.crackNames(formatOffered, formatDesired, name)
 
     def __decryptSupplementalInfo(self, record, prefixTable=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
@@ -810,50 +774,9 @@ class RAISECHILD:
         return rid, hexlify(LMHash), hexlify(NTHash)
 
     def DRSGetNCChanges(self, userEntry, creds):
-        if self.__drsr is None:
-            self.__connectDrds(creds)
-
-        request = drsuapi.DRSGetNCChanges()
-        request['hDrs'] = self.__hDrs
-        request['dwInVersion'] = 8
-
-        request['pmsgIn']['tag'] = 8
-        request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__NtdsDsaObjectGuid
-        request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__NtdsDsaObjectGuid
-
-        dsName = drsuapi.DSNAME()
-        dsName['SidLen'] = 0
-        dsName['Guid'] = drsuapi.NULLGUID
-        dsName['Sid'] = ''
-        dsName['NameLen'] = len(userEntry)
-        dsName['StringName'] = (userEntry + '\x00')
-
-        dsName['structLen'] = len(dsName.getData())
-
-        request['pmsgIn']['V8']['pNC'] = dsName
-
-        request['pmsgIn']['V8']['usnvecFrom']['usnHighObjUpdate'] = 0
-        request['pmsgIn']['V8']['usnvecFrom']['usnHighPropUpdate'] = 0
-
-        request['pmsgIn']['V8']['pUpToDateVecDest'] = NULL
-
-        request['pmsgIn']['V8']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_WRIT_REP
-        request['pmsgIn']['V8']['cMaxObjects'] = 1
-        request['pmsgIn']['V8']['cMaxBytes'] = 0
-        request['pmsgIn']['V8']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ
-        if self.__ppartialAttrSet is None:
-            self.__prefixTable = []
-            self.__ppartialAttrSet = drsuapi.PARTIAL_ATTR_VECTOR_V1_EXT()
-            self.__ppartialAttrSet['dwVersion'] = 1
-            self.__ppartialAttrSet['cAttrs'] = len(self.ATTRTYP_TO_ATTID)
-            for attId in list(self.ATTRTYP_TO_ATTID.values()):
-                self.__ppartialAttrSet['rgPartialAttr'].append(drsuapi.MakeAttid(self.__prefixTable , attId))
-        request['pmsgIn']['V8']['pPartialAttrSet'] = self.__ppartialAttrSet
-        request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(self.__prefixTable)
-        request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = self.__prefixTable
-        request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
-
-        return self.__drsr.request(request)
+        if self.__drsClient is None:
+            raise RuntimeError('DRS connection must be initialized with DRSCrackNames first')
+        return self.__drsClient.getRawRecordByDN(userEntry, self.ATTRTYP_TO_ATTID.values())
 
     def getCredentials(self, userName, domain, creds = None):
         upn = '%s@%s' % (userName, domain)
@@ -884,6 +807,7 @@ class RAISECHILD:
 
         self.__drsr.disconnect()
         self.__drsr = None
+        self.__drsClient = None
         aes128Key = aes256Key = None
         if kerberosKeys is not None:
             aes128Key = kerberosKeys['aes128Key']

