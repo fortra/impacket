@@ -58,7 +58,7 @@ from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
 from impacket.krb5.keytab import Keytab
 
-OUTPUT_FILENAME = '__' + str(time.time())[:5]
+OUTPUT_FILENAME = 'temp-_1' + str(time.time())[:5]
 CODEC = sys.stdout.encoding
 
 class DCOMEXEC:
@@ -206,7 +206,7 @@ class RemoteShell(cmd.Cmd):
     def __init__(self, share, quit, executeShellCommand, smbConnection, shell_type, silentCommand=False):
         cmd.Cmd.__init__(self)
         self._share = share
-        self._output = '\\' + OUTPUT_FILENAME
+        self._output = '\\ProgramData\\' + OUTPUT_FILENAME
         self.__outputBuffer = ''
         self._shell = 'cmd.exe'
         self.__shell_type = shell_type
@@ -541,7 +541,7 @@ if __name__ == '__main__':
                                                                     "ShellBrowserWindow DCOM object.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from '
+    parser.add_argument('-share', action='store', default = 'C$', help='share where the output will be grabbed from '
                                                                            '(default ADMIN$)')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
