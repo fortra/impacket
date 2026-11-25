@@ -932,9 +932,8 @@ class TRANS2Commands:
                 elif informationLevel == smb.SMB_SET_FILE_END_OF_FILE_INFO:
                     fileHandle = connData['OpenedFiles'][setFileInfoParameters['FID']]['FileHandle']
                     infoRecord = smb.SMBSetFileEndOfFileInfo(data)
-                    if infoRecord['EndOfFile'] > 0:
-                        os.lseek(fileHandle, infoRecord['EndOfFile'] - 1, 0)
-                        os.write(fileHandle, b'\x00')
+                    # set the file size to EndOfFile: truncate or extend with zeros, keeping existing contents
+                    os.ftruncate(fileHandle, infoRecord['EndOfFile'])
                 else:
                     smbServer.log('Unknown level for set file info! 0x%x' % setFileInfoParameters['InformationLevel'],
                                   logging.ERROR, connData=connData)
@@ -3910,9 +3909,8 @@ class SMB2Commands:
                     elif informationLevel == smb2.SMB2_FILE_END_OF_FILE_INFO:
                         fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
                         infoRecord = smb.SMBSetFileEndOfFileInfo(setInfo['Buffer'])
-                        if infoRecord['EndOfFile'] > 0:
-                            os.lseek(fileHandle, infoRecord['EndOfFile'] - 1, 0)
-                            os.write(fileHandle, b'\x00')
+                        # set the file size to EndOfFile: truncate or extend with zeros, keeping existing contents
+                        os.ftruncate(fileHandle, infoRecord['EndOfFile'])
                     elif informationLevel == smb2.SMB2_FILE_RENAME_INFO:
                         renameInfo = smb2.FILE_RENAME_INFORMATION_TYPE_2(setInfo['Buffer'])
                         newFileName = normalize_path(renameInfo['FileName'].decode('utf-16le'))
