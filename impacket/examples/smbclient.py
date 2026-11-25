@@ -661,6 +661,26 @@ class MiniImpacketShell(cmd.Cmd):
                     raise
                 fh.close()
 
+    @staticmethod
+    def _is_safe_rget_directory_name(filename):
+        """Return whether filename is a single relative path component."""
+        if not filename or filename in ('.', '..'):
+            return False
+
+        drive, _ = ntpath.splitdrive(filename)
+        return not drive and not filename.startswith(('\\', '/')) and '\\' not in filename and '/' not in filename
+
+    @staticmethod
+    def _is_safe_rget_local_path(download_root, local_file):
+        """Return whether local_file resolves below download_root."""
+        local_root = os.path.normcase(os.path.realpath(download_root))
+        target_path = os.path.normcase(os.path.realpath(os.path.join(download_root, local_file)))
+        try:
+            return os.path.commonpath((local_root, target_path)) == local_root
+        except ValueError:
+            # Paths on different Windows drives cannot be compared safely.
+            return False
+
     def do_rget(self, mask):
         if mask == '':
             mask = '*'
@@ -672,6 +692,7 @@ class MiniImpacketShell(cmd.Cmd):
             return
 
         root_pwd = self.pwd
+        download_root = os.getcwd()
         folderList = [root_pwd]
 
         for ITEM in folderList:
@@ -684,11 +705,11 @@ class MiniImpacketShell(cmd.Cmd):
                     filename = file_tuple[0]
                     is_directory = file_tuple[1]
 
-                    if filename in ['.', '..']:
-                        continue
-
                     if is_directory:
-                        folderList.append(ntpath.join(ITEM, filename))
+                        if self._is_safe_rget_directory_name(filename):
+                            folderList.append(ntpath.join(ITEM, filename))
+                        else:
+                            LOG.error("Skipping unsafe directory name %s" % filename)
 
                 self.do_ls(mask, display=False)
 
@@ -700,24 +721,33 @@ class MiniImpacketShell(cmd.Cmd):
                         continue
 
                     filename = filename.replace('/', '\\')
-                    local_path = ntpath.relpath(ITEM, root_pwd)
+                    try:
+                        local_path = ntpath.relpath(ITEM, root_pwd)
+                    except ValueError:
+                        LOG.error("Skipping file in unsafe directory %s" % ITEM)
+                        continue
                     if local_path == '.':
                         local_path = ''
                     local_path = local_path.replace('\\', os.sep)
                     local_file = os.path.join(local_path, ntpath.basename(filename)) if local_path else ntpath.basename(filename)
-                    local_dir = os.path.dirname(local_file)
+                    if not self._is_safe_rget_local_path(download_root, local_file):
+                        LOG.error("Skipping unsafe local path %s" % local_file)
+                        continue
+
+                    local_file_path = os.path.join(download_root, local_file)
+                    local_dir = os.path.dirname(local_file_path)
 
                     if local_dir and not os.path.exists(local_dir):
                         os.makedirs(local_dir)
 
-                    fh = open(local_file, 'wb')
+                    fh = open(local_file_path, 'wb')
                     pathname = ntpath.join(ITEM, filename)
                     try:
                         LOG.info("Downloading %s" % local_file)
                         self.smb.getFileEx(self.share, pathname, fh.write)
                     except:
                         fh.close()
-                        os.remove(local_file)
+                        os.remove(local_file_path)
                         raise
                     fh.close()
             finally:
