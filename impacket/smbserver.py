@@ -469,62 +469,48 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         encoding = 'ascii'
 
     fileName = normalize_path(fileName)
-    if isSMB2:
-        path = os.path.realpath(path)
+    path = os.path.realpath(path)
     pathName = os.path.join(path, fileName)
-    jailTarget = fileName
+    dirName, leafName = os.path.split(pathName)
+    isPattern = '*' in leafName or '?' in leafName
 
-    if pathName.find('*') == -1 and pathName.find('?') == -1:
-        # No search patterns
-        pattern = ''
-    else:
-        dirName, pattern = os.path.split(pathName)
-        if isSMB2:
-            # The mask can resolve differently from the directory we actually list.
-            jailTarget = dirName
-
+    # A wildcard mask can resolve differently from the directory we actually list.
+    jailTarget = dirName if isPattern else pathName
     if not isInFileJail(path, jailTarget):
         LOG.error("Path not in current working directory")
         return [], 0, STATUS_OBJECT_PATH_SYNTAX_BAD
 
     files = []
 
-    # Preserve the synthetic dot entries for SMB1.
-    if pattern == '*' and not isSMB2:
-        files.append(os.path.join(dirName, '.'))
-        files.append(os.path.join(dirName, '..'))
-
-    if pattern != '':
+    if isPattern:
         if not os.path.exists(dirName):
             return None, 0, STATUS_OBJECT_NAME_NOT_FOUND
 
         for file in os.listdir(dirName):
-            if fnmatch.fnmatch(file.lower(), pattern.lower()):
+            if fnmatch.fnmatch(file.lower(), leafName.lower()):
                 entry = os.path.join(dirName, file)
-                if isSMB2 and not isInFileJail(path, entry):
+                if not isInFileJail(path, entry):
                     continue
-                if os.path.isdir(entry):
-                    if searchAttributes & smb.ATTR_DIRECTORY:
-                        files.append(entry)
-                else:
-                    files.append(entry)
+                if searchAttributes & smb.ATTR_DIRECTORY or not os.path.isdir(entry):
+                    files.append((entry, file))
 
-        # Keep empty SMB2 wildcard listings successful without stat'ing the
-        # physical parent of the share root.
-        if isSMB2 and pattern == '*' and not files:
-            files.append(os.path.join(dirName, '.'))
+        # SMB1 expects dot entries; SMB2 only needs them for an empty listing.
+        if leafName == '*' and (not isSMB2 or not files):
+            dots = [(dirName, '.')]
             parent = os.path.join(dirName, '..')
-            if isInFileJail(path, parent):
-                files.append(parent)
-    else:
-        if os.path.exists(pathName):
-            files.append(pathName)
+            parentInShare = isInFileJail(path, parent)
+            if parentInShare or not isSMB2:
+                # SMB1's virtual parent at the share root is the root itself.
+                dots.append((parent if parentInShare else path, '..'))
+            files = dots + files
+    elif os.path.exists(pathName):
+        files.append((pathName, leafName))
 
     searchResult = []
     searchCount = len(files)
     errorCode = STATUS_SUCCESS
 
-    for i in files:
+    for i, name in files:
         if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
             item = smb.SMBFindFileBothDirectoryInfo(flags=pktFlags)
         elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO or level == smb2.SMB2_FILE_DIRECTORY_INFO:
@@ -549,7 +535,7 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         else:
             item['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
 
-        item['FileName'] = os.path.basename(i).encode(encoding)
+        item['FileName'] = name.encode(encoding)
 
         if level in [smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO, smb2.SMB2_FILE_BOTH_DIRECTORY_INFO,
                      smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO, smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO]:
@@ -561,7 +547,6 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['LastWriteTime'] = wintime.posix_to_filetime(mtime)
             item['LastChangeTime'] = wintime.posix_to_filetime(mtime)
             item['ShortName'] = '\x00' * 24
-            item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
         elif level in [smb.SMB_FIND_FILE_DIRECTORY_INFO, smb2.SMB2_FILE_DIRECTORY_INFO]:
@@ -571,7 +556,6 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['LastAccessTime'] = wintime.posix_to_filetime(atime)
             item['LastWriteTime'] = wintime.posix_to_filetime(mtime)
             item['LastChangeTime'] = wintime.posix_to_filetime(mtime)
-            item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
         elif level in [smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO, smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO,
@@ -1096,7 +1080,9 @@ class TRANS2Commands:
         findFirst2Parameters = smb.SMBFindFirst2_Parameters(recvPacket['Flags2'], data=parameters)
 
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            path = connData['ConnectedShares'][recvPacket['Tid']].get('path')
+            if not path:
+                return respSetup, respParameters, respData, STATUS_ACCESS_DENIED
 
             searchResult, searchCount, errorCode = findFirst2(path,
                                                               decodeSMBString(recvPacket['Flags2'],

@@ -86,14 +86,15 @@ from unittest.mock import Mock
 
 from six import StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
-from impacket import smb
+from impacket import smb, wintime
 from impacket.smb import SMB_DIALECT
 from impacket.smbserver import (
     normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, SMB2Commands, TRANS2Commands,
 )
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
 from impacket.nt_errors import (
-    STATUS_NETWORK_NAME_DELETED, STATUS_NOT_SUPPORTED, STATUS_OBJECT_PATH_SYNTAX_BAD, STATUS_SUCCESS,
+    STATUS_ACCESS_DENIED, STATUS_NETWORK_NAME_DELETED, STATUS_NOT_SUPPORTED, STATUS_OBJECT_PATH_SYNTAX_BAD,
+    STATUS_SUCCESS,
 )
 from impacket import smb3structs as smb2
 from threading import Thread
@@ -220,17 +221,30 @@ class SMBServerDirectorySearchTests(unittest.TestCase):
             'test', self.server, {'TreeID': self.tree_id if tree_id is None else tree_id, 'Data': request.getData()})
 
     def _entry_names(self, response):
-        data = response['Buffer']
-        names = []
+        return [entry['FileName'].decode('utf-16le') for entry in self._directory_entries(response['Buffer'])]
+
+    def _directory_entries(self, data):
         while data:
             entry = smb.SMBFindFileDirectoryInfo(flags=smb.SMB.FLAGS2_UNICODE, data=data)
-            names.append(entry['FileName'].decode('utf-16le'))
+            yield entry
             offset = entry['NextEntryOffset']
             if offset == 0:
                 break
             self.assertLess(offset, len(data))
             data = data[offset:]
-        return names
+
+    def _find_first2(self, pattern):
+        flags = smb.SMB.FLAGS2_UNICODE
+        request = smb.SMBFindFirst2_Parameters(flags)
+        request['SearchAttributes'] = smb.ATTR_DIRECTORY
+        request['SearchCount'] = 10
+        request['Flags'] = 0
+        request['InformationLevel'] = smb.SMB_FIND_FILE_DIRECTORY_INFO
+        request['SearchStorageType'] = 0
+        request['FileName'] = pattern.encode('utf-16le')
+        _, _, data, status = TRANS2Commands.findFirst2(
+            'test', self.server, {'Tid': self.tree_id, 'Flags2': flags}, request.getData(), b'', 4096)
+        return data, status
 
     def _link_directory(self, name, target):
         link = self.share / name
@@ -338,18 +352,46 @@ class SMBServerDirectorySearchTests(unittest.TestCase):
                 self.assertNotIn('outside.txt', names)
 
     def test_smb1_find_first2_rejects_escaping_pattern(self):
-        flags = smb.SMB.FLAGS2_UNICODE
-        request = smb.SMBFindFirst2_Parameters(flags)
-        request['SearchAttributes'] = smb.ATTR_DIRECTORY
-        request['SearchCount'] = 10
-        request['Flags'] = 0
-        request['InformationLevel'] = smb.SMB_FIND_FILE_DIRECTORY_INFO
-        request['SearchStorageType'] = 0
-        request['FileName'] = r'..\share-outside\*.txt'.encode('utf-16le')
-        _, _, data, status = TRANS2Commands.findFirst2(
-            'test', self.server, {'Tid': self.tree_id, 'Flags2': flags}, request.getData(), b'', 4096)
+        data, status = self._find_first2(r'..\share-outside\*.txt')
         self.assertEqual(status, STATUS_OBJECT_PATH_SYNTAX_BAD)
         self.assertEqual(data, b'')
+
+    @unittest.skipIf(os.name == 'nt', 'Windows filenames cannot contain wildcards')
+    def test_smb1_find_first2_checks_directory_not_literal_mask_target(self):
+        (self.outside / '*.txt').symlink_to(self.share / 'root.txt')
+        data, status = self._find_first2('../share-outside/*.txt')
+        self.assertEqual(status, STATUS_OBJECT_PATH_SYNTAX_BAD)
+        self.assertEqual(data, b'')
+
+    def test_smb1_find_first2_skips_match_pointing_outside(self):
+        self._link_directory('linked', self.outside)
+        self._link_directory('linked-inside', self.subdir)
+        data, status = self._find_first2('*')
+        self.assertEqual(status, STATUS_SUCCESS)
+        self.assertCountEqual(
+            (entry['FileName'].decode('utf-16le') for entry in self._directory_entries(data)),
+            ['.', '..', 'root.txt', 'subdir', 'linked-inside'],
+        )
+
+    def test_smb1_find_first2_keeps_dot_entries_inside_share(self):
+        share_time = 1680000000
+        os.utime(self.share, (share_time, share_time))
+        os.utime(self.share.parent, (1690000000, 1690000000))
+        for pattern in ('*', 'subdir/*'):
+            with self.subTest(pattern=pattern):
+                data, status = self._find_first2(pattern)
+                self.assertEqual(status, STATUS_SUCCESS)
+                entries = {entry['FileName'].decode('utf-16le'): entry for entry in self._directory_entries(data)}
+                self.assertIn('.', entries)
+                self.assertEqual(wintime.filetime_to_posix(entries['..']['LastWriteTime']), share_time)
+
+    def test_smb1_find_first2_rejects_tree_without_path(self):
+        for share in ({}, {'path': '', 'shareName': 'IPC$'}):
+            with self.subTest(share=share):
+                self.connection['ConnectedShares'][self.tree_id] = share
+                data, status = self._find_first2('*')
+                self.assertEqual(status, STATUS_ACCESS_DENIED)
+                self.assertEqual(data, b'')
 
 
 class SimpleSMBServerFuncTests(unittest.TestCase):
