@@ -16,12 +16,14 @@ import unittest
 from tests.dcerpc import DCERPCTests
 
 from impacket.dcerpc.v5 import capr
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 
 
 class CAPRTests(DCERPCTests):
     iface_uuid = capr.MSRPC_UUID_LSACAP
     string_binding = r"ncacn_np:{0.machine}[\PIPE\lsarpc]"
     authn = True
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 
     def check_capids(self, resp):
         # CAPIDs are SIDs under SECURITY_SCOPED_POLICY_ID_AUTHORITY (S-1-17-*).
