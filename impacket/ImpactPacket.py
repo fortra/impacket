@@ -622,6 +622,12 @@ class Ethernet(Header):
         return EthernetTag(tag)
 
     def load_header(self, aBuffer):
+        # Normalise to bytes so an array of bytes (e.g. the value returned by
+        # get_bytes()) or a bytearray is handled like a byte string: otherwise the
+        # VLAN TPID comparison below never matches (an array slice does not equal a
+        # bytes literal), tags are missed, and the padding '+=' raises TypeError on a
+        # short array. See issue #684.
+        aBuffer = bytes(aBuffer)
         self.tag_cnt = 0
         while aBuffer[12+4*self.tag_cnt:14+4*self.tag_cnt] in (b'\x81\x00', b'\x88\xa8', b'\x91\x00'):
             self.tag_cnt += 1
