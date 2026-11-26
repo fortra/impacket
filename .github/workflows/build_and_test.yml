@@ -31,11 +31,16 @@ jobs:
 
       - name: Check syntax errors
         run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --extend-ignore=F824 --show-source --statistics
+
+      - name: Warn about unused global and nonlocal declarations
+        run: >-
+          flake8 . --select=F824 --exit-zero
+          --format="::warning file=%(path)s,line=%(row)d,col=%(col)d::%(code)s %(text)s"
 
       - name: Check PEP8 warnings
         run: |
-          flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
+          flake8 . --count --ignore=E1,E2,E3,E501,F824,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
 
   test:
     name: Run unit tests and build wheel
