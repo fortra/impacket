@@ -970,7 +970,7 @@ class PKINIT:
     """Request a TGT with a certificate, as defined in RFC 4556."""
 
     def __init__(self, clientName, domain, credentials, kdcHost=None, requestPAC=True, serverName=None,
-                 supportedCiphers=None, timeout=None):
+                 supportedCiphers=None, timeout=None, exchange=None):
         self.clientName = clientName
         self.domain = domain.upper()
         self.credentials = credentials
@@ -978,6 +978,7 @@ class PKINIT:
         self.requestPAC = requestPAC
         self.serverName = serverName
         self.timeout = timeout
+        self.exchange = exchange
         self.supportedCiphers = supportedCiphers or (
             int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
             int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
@@ -1087,6 +1088,7 @@ class PKINIT:
     def getTGT(self):
         # Imported here, kerberosv5 dispatches to this module
         from impacket.krb5.kerberosv5 import KerberosError, sendReceive
+        exchange = self.exchange if self.exchange is not None else sendReceive
 
         self.keyExchange = self.newKeyExchange()
         # One retry per recoverable error: rejected domain parameters, rejected digest (RFC 4556 3.2.2)
@@ -1094,7 +1096,7 @@ class PKINIT:
         for attempt in range(4):
             self.asReq = self.buildAsReq()
             try:
-                response = sendReceive(self.asReq, self.domain, self.kdcHost, timeout=self.timeout)
+                response = exchange(self.asReq, self.domain, self.kdcHost, timeout=self.timeout)
                 krbError = self.asKerberosError(response)
                 if krbError is None:
                     break
@@ -1359,13 +1361,14 @@ class PKINIT:
 
 
 def getKerberosTGTPKINIT(clientName, domain, credentials, kdcHost=None, requestPAC=True, serverName=None,
-                         supportedCiphers=None, timeout=None):
+                         supportedCiphers=None, timeout=None, exchange=None):
     """Request a TGT with a client certificate, as defined in RFC 4556.
 
     Returns the same (tgt, cipher, oldSessionKey, sessionKey) tuple as
     getKerberosTGT, where oldSessionKey is the AS reply key derived from the
-    certificate exchange.
+    certificate exchange. An optional exchange callback carries every AS
+    request, including retries, over the selected KDC transport.
     """
     pkinit = PKINIT(clientName, domain, credentials, kdcHost=kdcHost, requestPAC=requestPAC, serverName=serverName,
-                    supportedCiphers=supportedCiphers, timeout=timeout)
+                    supportedCiphers=supportedCiphers, timeout=timeout, exchange=exchange)
     return pkinit.getTGT()

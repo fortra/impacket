@@ -9,7 +9,7 @@ from impacket.krb5.asn1 import AP_REP, AS_REP, EncAPRepPart, TGS_REQ, seq_set
 from impacket.krb5.crypto import Key, _enctype_table
 from impacket.krb5.gssapi import GSSAPI
 from impacket.krb5.kerberosv5 import DEFAULT_TGS_ENCTYPES, RC4_PREFERRED_TGS_ENCTYPES, KerberosError, \
-    getKerberosTGS, getKerberosTGSRequestEnctypes, getKerberosType3
+    getKerberosTGT, getKerberosTGS, getKerberosTGSRequestEnctypes, getKerberosType3
 from impacket.krb5.types import KerberosTime, Principal
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
@@ -54,6 +54,25 @@ def _build_rc4_tgt(tgtService='krbtgt/EXAMPLE.COM', ticketRealm='EXAMPLE.COM'):
     return encoder.encode(asRep)
 
 
+class KerberosExchangeHookTests(TestCase):
+    def test_tgt_uses_selected_exchange(self):
+        requests = []
+
+        def exchange(data, domain, kdcHost, timeout=None):
+            requests.append((data, domain, kdcHost))
+            raise KerberosError(constants.ErrorCodes.KDC_ERR_PREAUTH_FAILED.value)
+
+        with mock.patch('impacket.krb5.kerberosv5.sendReceive', side_effect=AssertionError('direct KDC used')):
+            with self.assertRaises(KerberosError):
+                getKerberosTGT(
+                    Principal('user', type=constants.PrincipalNameType.NT_PRINCIPAL.value),
+                    'password', 'EXAMPLE.COM', b'', b'',
+                    exchange=exchange,
+                )
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0][1:], ('EXAMPLE.COM', None))
+
+
 class KerberosTGSEnctypeTests(TestCase):
     def _assert_request_enctypes(self, requestedEtypes, expectedEtypes):
         requests = []
@@ -77,6 +96,23 @@ class KerberosTGSEnctypeTests(TestCase):
 
         sendReceive.assert_called_once()
         self.assertEqual(requests, [expectedEtypes])
+
+    def test_tgs_uses_selected_exchange(self):
+        requests = []
+
+        def exchange(data, domain, kdcHost, timeout=None):
+            requests.append((data, domain, kdcHost))
+            raise KerberosError(constants.ErrorCodes.KDC_ERR_S_PRINCIPAL_UNKNOWN.value)
+
+        with mock.patch('impacket.krb5.kerberosv5.sendReceive', side_effect=AssertionError('direct KDC used')):
+            with self.assertRaises(KerberosError):
+                getKerberosTGS(
+                    Principal('cifs/server.example.com', type=constants.PrincipalNameType.NT_SRV_INST.value),
+                    'EXAMPLE.COM', None, _build_rc4_tgt(), _RC4Cipher(), object(),
+                    exchange=exchange,
+                )
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0][1:], ('EXAMPLE.COM', None))
 
     def test_default_tgs_enctypes_are_aes_first(self):
         self.assertEqual(

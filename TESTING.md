@@ -323,3 +323,81 @@ in an elevated PowerShell session on the target:
 
 1. Configure the target address and administrator credentials in the remote
    test configuration file.
+
+### KDC Proxy: optional live interoperability check
+
+The [KDC Proxy tests](tests/misc/test_kdcproxy.py) use a mocked HTTPS connection
+and run without a remote target. To check interoperability with a native Windows
+KDC Proxy, prepare a domain-joined Windows Server with `KpsSvc` and network
+access to a domain controller on TCP 88. The proxy host does not need to be a
+domain controller or a certification authority. These manual checks do not use
+`tests/dcetests.cfg` or the `remote` pytest marker.
+
+1. Synchronize the proxy, domain controller, and test client's clocks. Use an
+   account that can obtain a TGT in the test realm. For a PKINIT check, the
+   selected domain controller also needs a valid KDC Authentication certificate,
+   and the client needs a certificate accepted by that realm. If the proxy can
+   select more than one domain controller, make their PKINIT prerequisites
+   equivalent before interpreting a proxy result.
+
+1. Install a server-authentication TLS certificate in `Cert:\LocalMachine\My`
+   on the proxy. Its private key must be available to the machine, and its DNS
+   subject alternative name must match the hostname in the proxy URL. An IP
+   address URL requires a matching IP subject alternative name. Use a CA trusted
+   by the test client. For example, an available AD CS `WebServer` template can
+   issue the certificate from a machine request with a nonexportable key. See
+   Microsoft's [certreq documentation](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certreq_1)
+   for the request INF and enrollment steps.
+
+1. On the proxy, choose an unused HTTPS port and check its current HTTP.sys URL
+   reservations and certificate bindings before adding new ones. The following
+   example assumes KpsSvc has not been configured yet and uses 8443; use 443 if
+   it is free. Adapt an existing KpsSvc configuration instead of overwriting it.
+   Run the commands in an elevated PowerShell session, replacing the certificate
+   thumbprint and test-client address:
+
+        PS C:\> $Port = 8443
+        PS C:\> $Thumbprint = '<server certificate thumbprint>'
+        PS C:\> $TestClient = '<test client IP address>'
+        PS C:\> $Realm = 'EXAMPLE.TEST'
+        PS C:\> $Kdc = 'dc.example.test'
+        PS C:\> $Settings = 'HKLM:\SYSTEM\CurrentControlSet\Services\KPSSVC\Settings'
+        PS C:\> netsh http show urlacl
+        PS C:\> netsh http show sslcert
+        PS C:\> New-Item -Path $Settings -Force | Out-Null
+        PS C:\> New-ItemProperty -Path $Settings -Name HttpsUrlGroup -PropertyType MultiString -Value @("+:$Port") -Force
+        PS C:\> New-ItemProperty -Path $Settings -Name HttpsClientAuth -PropertyType DWord -Value 0 -Force
+        PS C:\> New-ItemProperty -Path $Settings -Name DisallowUnprotectedPasswordAuth -PropertyType DWord -Value 0 -Force
+        PS C:\> $RealmKey = New-Item -Path "$Settings\KdcProxy\$Realm" -Force
+        PS C:\> New-ItemProperty -Path $RealmKey.PSPath -Name KdcNames -PropertyType MultiString -Value @($Kdc) -Force
+        PS C:\> netsh http add urlacl url="https://+:$Port/KdcProxy/" 'sddl=D:(A;;GX;;;NS)'
+        PS C:\> $AppId = '{' + (New-Guid).Guid + '}'
+        PS C:\> netsh http add sslcert ipport="0.0.0.0:$Port" certhash=$Thumbprint appid=$AppId certstorename=MY
+        PS C:\> New-NetFirewallRule -DisplayName 'KDC Proxy test' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -RemoteAddress $TestClient
+        PS C:\> Set-Service KpsSvc -StartupType Automatic
+        PS C:\> Start-Service KpsSvc
+
+   The URL reservation, HTTPS binding, and service settings follow Microsoft's
+   [Windows KDC Proxy configuration](https://learn.microsoft.com/en-us/windows-server/storage/file-server/smb-over-quic#configure-the-kdc-proxy-optional-but-recommended).
+   Keep any pre-existing HTTP.sys bindings in place.
+
+1. Verify that `KpsSvc` is running and that the client validates the HTTPS
+   certificate. Use the issuing CA's public certificate in PEM form when the
+   client does not already trust it:
+
+        $ openssl s_client -connect proxy.example.test:8443 -servername proxy.example.test -verify_hostname proxy.example.test -verify_return_error -CAfile ca.pem < /dev/null
+
+1. Run a password-based AS exchange and a TGS exchange through the proxy. Enter
+   the test account's password at the prompt, rather than in the identity:
+
+        $ python examples/getTGT.py -via-kdc-proxy https://proxy.example.test:8443/KdcProxy -kdc-proxy-ca ca.pem EXAMPLE.TEST/user
+        $ python examples/getST.py -via-kdc-proxy https://proxy.example.test:8443/KdcProxy -kdc-proxy-ca ca.pem -spn cifs/server.example.test EXAMPLE.TEST/user
+
+   The explicit `-via-kdc-proxy` option does not require Windows client KDC
+   proxy policy. Repeat the relevant request directly against a known domain
+   controller as a control. To check PKINIT, repeat `getTGT.py` with its
+   certificate options and compare it with direct PKINIT to the same KDC.
+   `-kdc-proxy-ca` validates the proxy's HTTPS certificate; `-ca-cert` validates
+   the KDC certificate in the PKINIT reply. A proxy PKINIT failure alone does
+   not identify which domain controller handled the request. The HTTPS POST
+   path and message framing are specified in [MS-KKDCP](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-kkdcp/835af631-9ad7-4647-8281-ab5201ff8716).
