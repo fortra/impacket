@@ -20,10 +20,10 @@ jobs:
       - name: Checkout Impacket
         uses: actions/checkout@v3
 
-      - name: Setup Python 3.8
+      - name: Setup Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.10
 
       - name: Install Python dependencies
         run: |
@@ -40,7 +40,7 @@ jobs:
   test:
     name: Run unit tests and build wheel
     needs: lint
-    runs-on: ${{ matrix.python-version == '3.9' && 'ubuntu-22.04' || matrix.os }}
+    runs-on: ${{ matrix.python-version == '3.10' && 'ubuntu-22.04' || matrix.os }}
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
@@ -48,11 +48,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10","3.11","3.12","3.13"]
+        python-version: ["3.10","3.11","3.12","3.13","3.14"]
         experimental: [false]
         os: [ubuntu-latest]
         include:
-          - python-version: "3.14-dev"
+          - python-version: "3.15-dev"
             experimental: true
             os: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
