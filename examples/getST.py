@@ -19,6 +19,7 @@
 #
 #   Examples:
 #       ./getST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user
+#       ./getST.py -via-kdc-proxy https://proxy.contoso.com/KdcProxy -spn cifs/contoso-dc contoso.com/user
 #   or
 #   If you have tickets cached (run klist to verify) the script will use them
 #         ./getST.py -k -spn cifs/contoso-dc contoso.com/user
@@ -73,13 +74,14 @@ from impacket.krb5.ccache import CCache, Credential
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key, _get_checksum_profile, Cksumtype
 from impacket.krb5.constants import TicketFlags, encodeFlags, ApplicationTagNumbers
 from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, getKerberosTGSRequestEnctypes, sendReceive
+from impacket.krb5.kdcproxy import KDCProxyClient
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
 
 
 class GETST:
-    def __init__(self, target, password, domain, options):
+    def __init__(self, target, password, domain, options, exchange=None):
         self.__password = password
         self.__user = target
         self.__domain = domain
@@ -88,6 +90,7 @@ class GETST:
         self.__aesKey = options.aesKey
         self.__options = options
         self.__kdcHost = options.dc_ip
+        self.__exchange = exchange
         self.__force_forwardable = options.force_forwardable
         self.__additional_ticket = options.additional_ticket
         self.__dmsa = options.dmsa
@@ -350,7 +353,7 @@ class GETST:
             message = encoder.encode(tgsReq)
 
             logging.info('Requesting S4U2Proxy')
-            r = sendReceive(message, self.__domain, kdcHost)
+            r = (self.__exchange or sendReceive)(message, self.__domain, kdcHost)
             return r, None, sessionKey, None
 
     def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
@@ -538,7 +541,7 @@ class GETST:
         logging.info('Requesting S4U2self%s' % ('+U2U' if self.__options.u2u else ''))
         message = encoder.encode(tgsReq)
 
-        r = sendReceive(message, self.__domain, kdcHost)
+        r = (self.__exchange or sendReceive)(message, self.__domain, kdcHost)
 
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
@@ -758,7 +761,7 @@ class GETST:
         message = encoder.encode(tgsReq)
 
         logging.info('Requesting S4U2Proxy')
-        r = sendReceive(message, self.__domain, kdcHost)
+        r = (self.__exchange or sendReceive)(message, self.__domain, kdcHost)
         return r, None, sessionKey, None
 
     def run(self):
@@ -793,7 +796,7 @@ class GETST:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash), unhexlify(self.__nthash),
                                                                     self.__aesKey,
-                                                                    self.__kdcHost)
+                                                                    self.__kdcHost, exchange=self.__exchange)
             logging.debug("TGT session key: %s" % hexlify(sessionKey.contents).decode())
 
         # Ok, we have valid TGT, let's try to get a service ticket
@@ -807,7 +810,9 @@ class GETST:
                 logging.info('Getting ST for user')
 
             serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
-            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, self.__options.renew)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher,
+                                                                    sessionKey, self.__options.renew,
+                                                                    exchange=self.__exchange)
             self.__saveFileName = self.__user
         else:
             # Here's the rock'n'roll
@@ -869,6 +874,9 @@ if __name__ == '__main__':
                                                                           '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
                                                                             'omitted it use the domain part (FQDN) specified in the target parameter')
+    via = group.add_mutually_exclusive_group()
+    via.add_argument('-via-kdc-proxy', metavar='URL', help='Acquire tickets through an HTTPS KDC proxy')
+    group.add_argument('-kdc-proxy-ca', metavar='FILE', help='CA bundle for the HTTPS KDC proxy certificate')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -878,6 +886,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.dc_ip and options.via_kdc_proxy:
+        parser.error('-dc-ip cannot be used with -via-kdc-proxy')
+    if options.kdc_proxy_ca and not options.via_kdc_proxy:
+        parser.error('-kdc-proxy-ca requires -via-kdc-proxy')
 
     if not options.no_s4u2proxy and options.spn is None:
         parser.error("argument -spn is required, except when -self is set")
@@ -908,7 +921,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     try:
-        executer = GETST(username, password, domain, options)
+        proxy = KDCProxyClient(options.via_kdc_proxy, ca_file=options.kdc_proxy_ca) if options.via_kdc_proxy else None
+        executer = GETST(username, password, domain, options, exchange=proxy.exchange if proxy else None)
         executer.run()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:

@@ -143,6 +143,14 @@ class KerberosString(char.GeneralString):
 class Realm(KerberosString):
     pass
 
+# [MS-KKDCP] 2.2.2: the Kerberos message includes its four-byte TCP length.
+class KDC_PROXY_MESSAGE(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('kerb-message', 0, univ.OctetString()),
+        _sequence_optional_component('target-domain', 1, Realm()),
+        _sequence_optional_component('dclocator-hint', 2, univ.Integer()),
+    )
+
 class PrincipalName(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component("name-type", 0, Int32()),

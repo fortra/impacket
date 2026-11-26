@@ -15,6 +15,7 @@
 #   Examples:
 #       ./getTGT.py -hashes lm:nt contoso.com/user
 #       ./getTGT.py -cert-pfx user.pfx contoso.com/user
+#       ./getTGT.py -via-kdc-proxy https://proxy.contoso.com/KdcProxy contoso.com/user
 #
 # Author:
 #   Alberto Solino (@agsolino)
@@ -32,6 +33,7 @@ from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
 from impacket.krb5.pkinit import DH_GROUPS, EC_CURVES, PKINITCredentials, PKINITError, readCertificates
 from impacket.krb5.types import Principal
+from impacket.krb5.kdcproxy import KDCProxyClient
 
 
 class GETTGT:
@@ -84,6 +86,9 @@ class GETTGT:
 
     def run(self):
         userName = Principal(self.__user, type=options.principalType.value)
+        proxy = None
+        if self.__options.via_kdc_proxy:
+            proxy = KDCProxyClient(self.__options.via_kdc_proxy, ca_file=self.__options.kdc_proxy_ca)
         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(clientName = userName,
                                                                 password = self.__password,
                                                                 domain = self.__domain,
@@ -92,7 +97,8 @@ class GETTGT:
                                                                 aesKey = self.__aesKey,
                                                                 kdcHost = self.__kdcHost,
                                                                 serverName = self.__service,
-                                                                certificate = self.__certificate)
+                                                                certificate = self.__certificate,
+                                                                exchange = proxy.exchange if proxy is not None else None)
         self.saveTicket(tgt,oldSessionKey)
 
 if __name__ == '__main__':
@@ -115,6 +121,9 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
+    via = group.add_mutually_exclusive_group()
+    via.add_argument('-via-kdc-proxy', metavar='URL', help='Acquire the ticket through an HTTPS KDC proxy')
+    group.add_argument('-kdc-proxy-ca', metavar='FILE', help='CA bundle for the HTTPS KDC proxy certificate')
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
     group.add_argument('-principalType', nargs="?", type=lambda value: constants.PrincipalNameType[value.upper()] if value.upper() in constants.PrincipalNameType.__members__ else None,  action='store', default=constants.PrincipalNameType.NT_PRINCIPAL, help='PrincipalType of the token, can be one of  NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL, ')
 
@@ -148,6 +157,11 @@ if __name__ == '__main__':
         print("\tit will authenticate with the certificate of the PKCS#12 file, through PKINIT")
         sys.exit(1)
     options = parser.parse_args()
+
+    if options.dc_ip and options.via_kdc_proxy:
+        parser.error('-dc-ip cannot be used with -via-kdc-proxy')
+    if options.kdc_proxy_ca and not options.via_kdc_proxy:
+        parser.error('-kdc-proxy-ca requires -via-kdc-proxy')
 
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
