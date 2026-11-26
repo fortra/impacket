@@ -161,7 +161,14 @@ if __name__ == '__main__':
     if certificate is not None:
         options.no_pass = True
 
-    domain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
+    try:
+        domain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
+    except Exception as e:
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
+        logging.error(str(e))
+        sys.exit(1)
 
     if domain is None:
         logging.critical('Domain should be specified!')

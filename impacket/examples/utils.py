@@ -376,7 +376,10 @@ def parse_identity(credentials, hashes=None, no_pass=False, aesKey=None, k=False
     lmhash = ''
     nthash = ''
     if hashes is not None:
-        lmhash, nthash = hashes.split(':')
+        try:
+            lmhash, nthash = hashes.split(':')
+        except ValueError:
+            raise ValueError('The -hashes option should be in the LMHASH:NTHASH format, e.g. aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0 - got %r' % hashes)
         if lmhash == '':
             lmhash = EMPTY_LM_HASH
 
