@@ -38,10 +38,12 @@ TEST_CASE = False # Only set to True when running Test Cases
 DEFAULT_LM_HASH = binascii.unhexlify('AAD3B435B51404EEAAD3B435B51404EE')
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
-                    use_ntlmv2=USE_NTLMv2, channel_binding_value=b'', service='cifs'):
+                    use_ntlmv2=USE_NTLMv2, channel_binding_value=b'', service='cifs', include_mic=False):
     if use_ntlmv2:
         return computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
-                                     lmhash, nthash, use_ntlmv2=use_ntlmv2, channel_binding_value=channel_binding_value, service=service)
+                                     lmhash, nthash, use_ntlmv2=use_ntlmv2,
+                                     channel_binding_value=channel_binding_value, service=service,
+                                     include_mic=include_mic)
     else:
         return computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2)
@@ -207,6 +209,7 @@ NTLMSSP_AV_DNS_HOSTNAME     = 0x03
 NTLMSSP_AV_DNS_DOMAINNAME   = 0x04
 NTLMSSP_AV_DNS_TREENAME     = 0x05
 NTLMSSP_AV_FLAGS            = 0x06
+MSV_AV_FLAGS_MIC_PRESENT    = 0x00000002
 NTLMSSP_AV_TIME             = 0x07
 NTLMSSP_AV_RESTRICTIONS     = 0x08
 NTLMSSP_AV_TARGET_NAME      = 0x09
@@ -623,7 +626,8 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
 
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2, channel_binding_value = b'', service='cifs', version=None):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2,
+                    channel_binding_value = b'', service='cifs', version=None, include_mic=False):
 
     # Safety check in case somebody sent password = None.. That's not allowed. Setting it to '' and hope for the best.
     if password is None:
@@ -656,7 +660,9 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'],
                                                              clientChallenge, serverName, domain, user, password,
-                                                             lmhash, nthash, use_ntlmv2, channel_binding_value = channel_binding_value, service=service)
+                                                             lmhash, nthash, use_ntlmv2,
+                                                             channel_binding_value=channel_binding_value, service=service,
+                                                             include_mic=include_mic)
 
     # Let's check the return flags
     if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY) == 0:
@@ -931,7 +937,8 @@ def LMOWFv2( user, password, domain, lmhash = ''):
 
 
 def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='',
-                          nthash='', use_ntlmv2=USE_NTLMv2, channel_binding_value=b'', service='cifs'):
+                          nthash='', use_ntlmv2=USE_NTLMv2, channel_binding_value=b'', service='cifs',
+                          include_mic=False):
     responseServerVersion = b'\x01'
     hiResponseServerVersion = b'\x01'
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
@@ -953,6 +960,11 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
     
     if len(channel_binding_value) > 0:
         av_pairs[NTLMSSP_AV_CHANNEL_BINDINGS] = channel_binding_value
+
+    if include_mic:
+        av_flags = av_pairs[NTLMSSP_AV_FLAGS]
+        av_flags_value = struct.unpack('<L', av_flags[1])[0] if av_flags is not None else 0
+        av_pairs[NTLMSSP_AV_FLAGS] = struct.pack('<L', av_flags_value | MSV_AV_FLAGS_MIC_PRESENT)
 
     # Format according to:
     # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/aee311d6-21a7-4470-92a5-c4ecb022a87b

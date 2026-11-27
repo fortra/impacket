@@ -11,7 +11,7 @@ env:
 jobs:
   lint:
     name: Check syntax errors and warnings
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
@@ -20,10 +20,10 @@ jobs:
       - name: Checkout Impacket
         uses: actions/checkout@v3
 
-      - name: Setup Python 3.8
+      - name: Setup Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: "3.10"
 
       - name: Install Python dependencies
         run: |
@@ -31,16 +31,21 @@ jobs:
 
       - name: Check syntax errors
         run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --extend-ignore=F824 --show-source --statistics
+
+      - name: Warn about unused global and nonlocal declarations
+        run: >-
+          flake8 . --select=F824 --exit-zero
+          --format="::warning file=%(path)s,line=%(row)d,col=%(col)d::%(code)s %(text)s"
 
       - name: Check PEP8 warnings
         run: |
-          flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
+          flake8 . --count --ignore=E1,E2,E3,E501,F824,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
 
   test:
     name: Run unit tests and build wheel
     needs: lint
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.python-version == '3.10' && 'ubuntu-22.04' || matrix.os }}
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
@@ -48,11 +53,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10","3.11","3.12","3.13"]
+        python-version: ["3.10","3.11","3.12","3.13","3.14"]
         experimental: [false]
         os: [ubuntu-latest]
         include:
-          - python-version: "3.14-dev"
+          - python-version: "3.15-dev"
             experimental: true
             os: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}

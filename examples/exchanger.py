@@ -111,10 +111,7 @@ class Exchanger:
 
     def print(self, text):
         if self.__outputFd != None:
-            if PY3:
-                self.__outputFd.write(text + '\n')
-            else:
-                self.__outputFd.write((text + '\n').encode('utf-8'))
+            self.__outputFd.write(text + '\n')
         print(text)
 
     def _encode_binary(self, bytestr):
@@ -122,10 +119,8 @@ class Exchanger:
             return "0x%s" % str(binascii.hexlify(bytestr), 'ascii')
         elif self._output_type == "hex":
             return "0x%s" % binascii.hexlify(bytestr)
-        elif PY3:
-            return str(base64.b64encode(bytestr), 'ascii')
         else:
-            return base64.b64encode(bytestr)
+            return str(base64.b64encode(bytestr), 'ascii')
 
     def __del__(self):
         if self.__outputFd != None:
@@ -890,10 +885,6 @@ if __name__ == '__main__':
             else:
                 return argparse.HelpFormatter._split_lines(self, text, width)
 
-    def localized_arg(bytestring):
-        unicode_string = bytestring.decode(sys.getfilesystemencoding())
-        return unicode_string
-
     parser = argparse.ArgumentParser(add_help=True, description="A tool to abuse Exchange services")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG and EXTENDED output ON')
@@ -934,11 +925,7 @@ if __name__ == '__main__':
     dump_tables.add_argument('-rows-per-request', action='store', type=int, metavar="50", default=50,
         help='Limit the number of rows per request')
 
-    if PY3:
-        dump_tables.add_argument('-name', action='store', help='Dump table with the specified name (inc. GAL)')
-    else:
-        dump_tables.add_argument('-name', action='store', help='Dump table with the specified name (inc. GAL)',
-            type=localized_arg)
+    dump_tables.add_argument('-name', action='store', help='Dump table with the specified name (inc. GAL)')
 
     dump_tables.add_argument('-guid', action='store', help='Dump table with the specified GUID')
     dump_tables.add_argument('-output-type', choices=['hex', 'base64'], nargs='?', default='hex',

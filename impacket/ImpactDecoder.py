@@ -138,7 +138,11 @@ class IPDecoder(Decoder):
             i.set_ip_len(len(aBuffer))
             end = i.get_ip_len()
 
-        if i.get_ip_p() == ImpactPacket.UDP.protocol:
+        # Only the first fragment starts with the upper-layer header
+        if i.get_ip_offmask():
+            self.data_decoder = DataDecoder()
+            packet = self.data_decoder.decode(aBuffer[off:end])
+        elif i.get_ip_p() == ImpactPacket.UDP.protocol:
             self.udp_decoder = UDPDecoder()
             packet = self.udp_decoder.decode(aBuffer[off:end])
         elif i.get_ip_p() == ImpactPacket.TCP.protocol:

@@ -171,9 +171,9 @@ class ADDCOMPUTER:
                         raise Exception(str(e))
 
                 if self.__noAdd:
-                    logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
+                    logging.info("Successfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
                 else:
-                    logging.info("Succesfully deleted %s." % self.__computerName)
+                    logging.info("Successfully deleted %s." % self.__computerName)
 
             else:
                 if self.__computerName is not None:

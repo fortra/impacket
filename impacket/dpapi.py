@@ -27,18 +27,17 @@
 import sys
 
 from struct import unpack
-from datetime import datetime, timezone
 from binascii import unhexlify, hexlify
 from struct import pack
 from hashlib import pbkdf2_hmac
 from Cryptodome.Hash import HMAC, SHA512, SHA1, MD4
+from hmac import digest as hmac_digest
 from Cryptodome.Cipher import AES, DES3
 from Cryptodome.Util.Padding import unpad
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Util.number import bytes_to_long
-from six import PY3
 
-from impacket.ese import getUnixTime
+from impacket import wintime
 from impacket.structure import Structure, hexdump
 from impacket.uuid import bin_to_string
 from impacket.dcerpc.v5.enum import Enum
@@ -289,10 +288,7 @@ class MasterKey(Structure):
             derived = bytearray(hashFunction(passphrase, U))
             for r in range(count - 1):
                 actual = bytearray(hashFunction(passphrase, derived))
-                if PY3:
-                    derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
-                else:
-                    derived = bytearray([ chr((a) ^ (b)) for (a,b) in zip(derived, actual) ])
+                derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
             keyMaterial += derived
 
         return keyMaterial[:keylen]
@@ -303,7 +299,7 @@ class MasterKey(Structure):
         else:
             hashModule = ALGORITHMS_DATA[self['HashAlgo']][1]
 
-        prf = lambda p, s: HMAC.new(p, s, hashModule).digest()
+        prf = lambda p, s: hmac_digest(p, s, {SHA1: 'sha1', SHA512: 'sha512'}[hashModule])
         derivedBlob = self.deriveKey(key, self['Salt'],
                                     ALGORITHMS_DATA[self['CryptAlgo']][0] + ALGORITHMS_DATA[self['CryptAlgo']][3],
                                     count=self['MasterKeyIterationCount'], hashFunction=prf)
@@ -372,10 +368,7 @@ class CREDHIST_ENTRY(Structure):
             derived = bytearray(hashFunction(passphrase, U))
             for r in range(count - 1):
                 actual = bytearray(hashFunction(passphrase, derived))
-                if PY3:
-                    derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
-                else:
-                    derived = bytearray([ chr((a) ^ (b)) for (a,b) in zip(derived, actual) ])
+                derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
             keyMaterial += derived
 
         return keyMaterial[:keylen]
@@ -386,7 +379,7 @@ class CREDHIST_ENTRY(Structure):
         else:
             hashModule = ALGORITHMS_DATA[self['HashAlgo']][1]
 
-        prf = lambda p, s: HMAC.new(p, s, hashModule).digest()
+        prf = lambda p, s: hmac_digest(p, s, {SHA1: 'sha1', SHA512: 'sha512'}[hashModule])
 
         derivedBlob = self.deriveKey(key, self['Salt'], ALGORITHMS_DATA[self['CryptAlgo']][0] + ALGORITHMS_DATA[self['CryptAlgo']][3], count=self['Rounds'], hashFunction=prf)
 
@@ -782,7 +775,7 @@ class VAULT_VCRD(Structure):
     def dump(self):
         print("[VCRD]")
         print("SchemaGuid  : %s" % bin_to_string(self['SchemaGuid']))
-        print("LastWritten : %s" % (datetime.fromtimestamp(getUnixTime(self['LastWritten']), tz=timezone.utc)))
+        print("LastWritten : %s" % (wintime.filetime_to_datetime(self['LastWritten'])))
         print("FriendlyName: %s" % (self['FriendlyName'].decode('utf-16le')))
         print()
         for i,entry in enumerate(self.mapEntries):
@@ -1080,7 +1073,7 @@ class CREDENTIAL_BLOB(Structure):
 
     def dump(self):
         print("[CREDENTIAL]")
-        print("LastWritten : %s" % (datetime.fromtimestamp(getUnixTime(self['LastWritten']), tz=timezone.utc)))
+        print("LastWritten : %s" % (wintime.filetime_to_datetime(self['LastWritten'])))
         print("Flags       : 0x%.8x (%s)" % (self['Flags'], getFlags(CREDENTIAL_FLAGS, self['Flags'])))
         print("Persist     : 0x%.8x (%s)" % (self['Persist'], CREDENTIAL_PERSIST(self['Persist']).name))
         print("Type        : 0x%.8x (%s)" % (self['Type'], CREDENTIAL_TYPE(self['Type']).name))
@@ -1192,9 +1185,7 @@ def privatekeyblob_to_pkcs1(key):
     exp2 = bytes_to_long(key['exponent2'][::-1])
     coefficient = bytes_to_long(key['coefficient'][::-1])
     privateExp = bytes_to_long(key['privateExponent'][::-1]) # d
-    if PY3:
-        long = int
-    pubExp = long(key['rsapubkey']['pubexp']) # e
+    pubExp = int(key['rsapubkey']['pubexp']) # e
     # RSA.Integer(prime2).inverse(prime1) # u
 
     r = RSA.construct((modulus, pubExp, privateExp, prime1, prime2))
