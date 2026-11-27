@@ -24,7 +24,7 @@
 #   Alberto Solino (@agsolino)
 #
 from impacket import system_errors
-from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, ULONG, NULL
+from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, WSTR, DWORD, ULONG, NULL
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import uuidtup_to_bin
@@ -450,6 +450,26 @@ class RpcGetPrinterDriverDirectoryResponse(NDRCALL):
        ('ErrorCode', ULONG)
     )
 
+# 3.1.4.6.5 RpcXcvData (Opnum 88)
+class RpcXcvData(NDRCALL):
+    opnum = 88
+    structure = (
+       ('hXcv', PRINTER_HANDLE),
+       ('pszDataName', WSTR),
+       ('pInputData', BYTE_ARRAY),
+       ('cbInputData', DWORD),
+       ('cbOutputData', DWORD),
+       ('pdwStatus', DWORD),
+    )
+
+class RpcXcvDataResponse(NDRCALL):
+    structure = (
+       ('pOutputData', BYTE_ARRAY),
+       ('pcbOutputNeeded', DWORD),
+       ('pdwStatus', DWORD),
+       ('ErrorCode', ULONG),
+    )
+
 # 3.1.4.4.8 RpcAddPrinterDriverEx (Opnum 89)
 class RpcAddPrinterDriverEx(NDRCALL):
     opnum = 89
@@ -475,6 +495,7 @@ OPNUMS = {
     29 : (RpcClosePrinter, RpcClosePrinterResponse),
     65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
     69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
+    88 : (RpcXcvData, RpcXcvDataResponse),
     89 : (RpcAddPrinterDriverEx, RpcAddPrinterDriverExResponse),
 }
 
@@ -531,6 +552,31 @@ def hRpcClosePrinter(dce, phPrinter):
     """
     request = RpcClosePrinter()
     request['phPrinter'] = phPrinter
+    return dce.request(request)
+
+
+def hRpcXcvData(dce, hXcv, pszDataName, pInputData=NULL, cbOutputData=0, pdwStatus=0):
+    """
+    RpcXcvData sends port-specific commands and data to a port or port monitor.
+    Full Documentation:
+    https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/bf9d2351-aac0-481e-9d37-05eb5cc961da
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param PRINTER_HANDLE hXcv: A handle to a port or port monitor object.
+    :param string pszDataName: The requested data or action name.
+    :param bytes pInputData: Input data for the requested action.
+    :param int cbOutputData: Size of the requested output buffer.
+    :param int pdwStatus: Initial port monitor status value.
+
+    :return: a RpcXcvDataResponse instance, raises DCERPCSessionError on error.
+    """
+    request = RpcXcvData()
+    request['hXcv'] = hXcv
+    request['pszDataName'] = checkNullString(pszDataName)
+    request['pInputData'] = pInputData
+    request['cbInputData'] = 0 if pInputData is NULL else len(pInputData)
+    request['cbOutputData'] = cbOutputData
+    request['pdwStatus'] = pdwStatus
     return dce.request(request)
 
 
