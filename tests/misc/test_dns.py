@@ -19,6 +19,13 @@ class DNSTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "infinite loop"):
             DNS().parseCompressedMessage(b"\xc0\x0e\xc0\x0c")
 
+    def test_parse_compressed_message_rejects_header_pointers(self):
+        tail = b"\x00" * 10 + b"\x02ab" + b"\x00\x00"
+        for ptr in (b"\xc0\x00", b"\xc0\x03", b"\xc0\x07", b"\xc0\x0b"):
+            with self.subTest(ptr=ptr):
+                with self.assertRaisesRegex(Exception, "DNS header"):
+                    DNS().parseCompressedMessage(ptr + tail)
+
     def test_str(self):
         def chk(b, t):
             self.assertEqual(str(DNS(b)), t)

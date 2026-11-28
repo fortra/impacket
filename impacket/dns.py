@@ -318,8 +318,8 @@ class DNS(ProtocolPacket):
         'Parse compressed message defined on rfc1035 4.1.4.'
         if visited is None:
             visited = set()
-        if offset >= len(buf):
-            raise Exception("No more data to parse. Offset is bigger than length of buffer.")
+        if offset < 0 or offset >= len(buf):
+            raise Exception("No more data to parse. Offset is out of bounds of buffer.")
         byte = struct.unpack("B", buf[offset:offset+1])[0]
         #  if the first two bits are ones (11000000=0xC0), the next bits are the offset
         if byte & 0xC0 == 0xC0:
@@ -329,6 +329,8 @@ class DNS(ProtocolPacket):
             visited.add(offset)
             pointer = struct.unpack("!H", buf[offset:offset+2])[0] # network unsigned short
             pointer = (pointer & 0x3FFF) - self.__HEADER_BASE_SIZE
+            if pointer < 0:
+                raise Exception("Invalid DNS compression pointer. Pointer points into the DNS header.")
             if offset == pointer:
                 raise Exception("The infinite loop is in DNS decompression. Encountered pointer points to the current offset.")
             offset += 2
